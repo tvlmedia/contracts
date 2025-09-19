@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lens Comparison</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="controls desktop-only">
+ <div class="row row-1">
+  <button id="toggleButton" class="control-button">↔ Flip</button>
+  <button id="fullscreenButton" class="control-button">⛶ Fullscreen</button>
+  <button id="detailViewToggle" class="control-button">🔍 Detail View</button>
+ <button id="sbsToggle" type="button" class="control-button">Side-by-Side</button>
+  <button id="downloadPdfButton" class="control-button">⇩ Download PDF</button>
+
+  <label id="scaleCtrl" class="chip">
+    <span id="scaleVal">100%</span>
+    <input id="scaleSlider" type="range" min="100" max="130" value="100" step="1">
+  </label>
+
+  <select id="cameraSelect"></select>
+  <select id="sensorFormatSelect" disabled></select>
+  <button id="flareToggle" class="control-button" data-mode="noflare">Flare: OFF</button>
+</div>
+
+<div class="row row-2">
+  <select id="leftLens"></select>
+  <select id="tStopLeftSelect"></select>
+  <select id="rightLens"></select>
+  <select id="tStopRightSelect"></select>
+  <!-- Goed → nu in row 2 -->
+  <select id="focalLength" title="Focal length">
+    <option value="35mm">35mm</option>
+    <option value="75mm" selected>75mm</option>
+  </select>
+</div>
+  </div>
+</div>
+</div>
+ <div id="comparisonWrapper" class="desktop-only" tabindex="0">
+    <div id="beforeImage">
+      <img id="beforeImgTag" alt="Right lens preview">
+    </div>
+
+    <!-- === DETAIL VIEW OVERLAY (ZOOM) === -->
+<div id="detailOverlay">
+  <div id="leftDetail" class="detail-view-square"><img alt="Left zoom"></div>
+  <div id="rightDetail" class="detail-view-square"><img alt="Right zoom"></div>
+</div>
+
+    <div id="afterWrapper">
+      <div id="afterImage">
+        <img id="afterImgTag" alt="Left lens preview">
+      </div>
+    </div>
+
+<div id="fsBars" aria-hidden="true">
+  <div class="bar top"></div>
+  <div class="bar bottom"></div>
+  <div class="bar left"></div>
+  <div class="bar right"></div>
+</div>
+    
+    <div id="slider"></div>
+  </div>
+
+ <div id="infoContainer" class="desktop-only">
+  <div class="infoCol">
+    <div id="leftLabel"></div>
+    <button id="downloadLeftRawButton" class="control-button" disabled>⬇ Download Left RAW</button>
+  </div>
+
+  <div class="infoCol">
+    <div id="rightLabel"></div>
+    <button id="downloadRightRawButton" class="control-button" disabled>⬇ Download Right RAW</button>
+  </div>
+</div>
+  
+  <div id="lensInfo" class="desktop-only"></div>
+
+  <div id="explanationBox" class="desktop-only">
+    <p>⚠️ Let op: sommige lenzen zijn visueel gematcht. Als je bijvoorbeeld 35mm kiest, zie je soms een lens van 32 of 37mm die op 35mm lijkt qua field of view. Dit is om een eerlijke vergelijking te bieden.</p>
+  </div>
+
+  <!-- === MOBILE VIEW ONLY: Embedded fullscreen iframe === -->
+  <div class="lens-frame-outer mobile-only">
+    <div class="lens-frame-wrapper">
+      <iframe 
+        src="https://tvlmedia.github.io/lens-compare/" 
+        allowfullscreen 
+        loading="lazy">
+      </iframe>
+    </div>
+  </div>
+
+  <!-- === Scripts === -->
+   <!-- === Scripts === -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script defer src="script.js"></script>
+
+</body>
+</html>

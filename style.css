@@ -1,0 +1,974 @@
+/* ========== Algemene reset ========== */
+* {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+body {
+  margin: 0;
+  background: #0f0f0f;
+  color: white;
+  font-family: "Inter", "Helvetica Neue", sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+
+
+select, #toggleButton, #fullscreenButton, #downloadPdfButton {
+  padding: 6px 12px;
+  background: #1a1a1a;
+  color: white;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+select:hover,
+#toggleButton:hover,
+#fullscreenButton:hover,
+#downloadPdfButton:hover {
+  background: #666;
+  border-color: #666;
+}
+/* ========== Wrapper en sliderstructuur ========== */
+#comparisonWrapper {
+  width: 100%;
+  max-width: 1200px;         /* maak 1500–1600px als je 'm groter wilt */
+  min-height: clamp(360px, 56vw, 860px); /* fallback hoogte */
+  position: relative;
+  background: #000;
+  overflow: hidden;
+}
+
+
+
+/* ========== AFTER WRAPPER voor split ========== */
+/* NIEUW — overlay altijd full size, we knippen met clip-path */
+#afterWrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 2;
+  pointer-events: none;
+  /* begin op 50/50 */
+  clip-path: inset(0 50% 0 0);
+  -webkit-clip-path: inset(0 50% 0 0); /* voor oudere Safari's */
+  will-change: clip-path;
+}
+
+
+
+
+/* ========== Slider lijn ========== */
+#slider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  background: white;
+  cursor: ew-resize;
+  z-index: 10;
+}
+
+/* ========== Labels onderin ========== */
+
+
+
+/* ========== Extra uitlegtekst ========== */
+#explanationBox {
+  margin-top: 12px;
+  max-width: 960px;
+  font-size: 13px;
+  color: #aaa;
+  padding: 12px 16px;
+  background: #1a1a1a;
+  border-left: 4px solid orange;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+/* Beide beeld-lagen altijd exact over de hele wrapper leggen */
+#beforeImage,
+#afterImage {
+  position: absolute;
+  inset: 0;          /* top:0; right:0; bottom:0; left:0; */
+  width: 100%;
+  height: 100%;
+}
+
+
+
+
+
+
+/* ========== Print ========== */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .controls, #explanationBox {
+    display: none !important;
+  }
+
+  #comparisonWrapper {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: auto !important;
+  }
+
+  #infoContainer {
+    color: black !important;
+  }
+
+  #comparisonWrapper img {
+    object-fit: contain !important;
+  }
+}
+
+
+/* ========== Mobile mode ========== */
+.mobile-mode #comparisonWrapper {
+  width: 100vw; /* laat JS (applyCurrentFormat) de hoogte bepalen */
+}
+
+.mobile-mode #afterWrapper #afterImage,
+.mobile-mode #afterWrapper #afterImage img {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.mobile-mode #infoContainer {
+  width: 100%;
+  padding: 0 16px;
+  flex-direction: row;
+  justify-content: space-between;
+  font-size: 13px;
+  text-align: center;
+  gap: 8px;
+}
+
+.mobile-mode #leftLabel,
+.mobile-mode #rightLabel {
+  width: 50%;
+  margin: 0;
+}
+@media (max-width: 767px) {
+  #fullscreenButton {
+    display: none !important;
+  }
+}
+@media screen and (max-width: 767px) {
+  #lensInfo {
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 10px 12px;
+  }
+}
+@media (max-width: 767px) {
+  #infoContainer {
+    font-size: 13px;
+  }
+}
+.lens-frame-outer {
+  width: 100%;
+  margin: 60px auto 80px auto;
+  z-index: 10;
+}
+
+.lens-frame-wrapper {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.lens-frame-wrapper iframe {
+  width: 100%;
+  height: 100vh;
+  border: none;
+  display: block;
+}
+
+@media (max-width: 767px) {
+  .lens-frame-wrapper iframe {
+    height: calc(100vh - 60px);
+  }
+}
+.lens-frame-outer {
+  width: 100%;
+  margin: 60px auto 80px auto;
+  z-index: 10;
+}
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobile-only {
+    display: block;
+  }
+
+ 
+}
+
+#slider {
+  touch-action: none;
+}
+#detailOverlay {
+  position: fixed;
+  inset: 0;              /* ← toevoegen */
+  width: 100vw;          /* ← toevoegen */
+  height: 100vh;         /* ← toevoegen */
+  pointer-events: none;
+  z-index: 9999;
+  overflow: visible;
+  display: none;
+}
+#detailOverlay.active { display: block; }
+
+/* (optioneel, maar prettig tegen Safari artefacts) */
+.detail-view-square {
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.detail-view-square {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  overflow: hidden;
+  border: 2px solid white;
+  background: black;
+  pointer-events: none;
+}
+
+.detail-view-square img {
+  position: absolute;
+  width: 300%;
+  height: auto;
+  object-fit: cover;
+  transform-origin: top left;
+}
+#leftDetail {
+  margin-left: -130px;
+}
+
+#rightDetail {
+  margin-left: 130px;
+}
+.control-button {
+  padding: 6px 12px;
+  background: #1a1a1a;
+  color: white;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.control-button:hover {
+  background: #666;
+  border-color: #666;
+}
+
+.control-button:focus {
+  outline: none;
+  box-shadow: none;
+}
+.control-button.active {
+  background: #007bff;
+  border-color: #007bff;
+  color: white;
+}
+body.dragging,
+body.dragging * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -ms-user-select: none !important;
+}
+@media (max-width: 767px) {
+  #detailViewToggle {
+    display: none !important;
+  }
+}
+
+#infoContainer a {
+  color: inherit;          /* zelfde kleur als de tekst */
+  text-decoration: none;   /* geen lijn standaard */
+}
+#infoContainer a:hover {
+  text-decoration: underline; /* normale onderstreep bij hover */
+}
+
+
+
+
+/* optioneel: knoppen visueel gelijk maken met de rest */
+.control-button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+
+
+/* ===== Labels + RAW-knoppen onder het beeld ===== */
+#infoContainer {
+  max-width: 1200px;   /* matcht de viewer */
+  width: 100%;
+  margin: 12px auto 16px; /* incl. bottom-margin */
+  padding: 0 40px;        /* gelijk aan de rest */
+  box-sizing: border-box;
+
+  display: flex;
+  justify-content: space-between; /* links onder links, rechts onder rechts */
+  align-items: center;            /* verticaal gelijk */
+  gap: 48px;                      /* ruimte tussen de twee blokken */
+}
+
+.infoCol {
+  flex: 1 1 0;             /* twee gelijke kolommen */
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;     /* tekst + knop centreren in de kolom */
+  text-align: center;
+  gap: 10px;               /* ruimte tussen label en knop */
+}
+
+#leftLabel,
+#rightLabel {
+  white-space: nowrap;     /* T2.8 blijft op dezelfde regel */
+}
+
+/* 1) Overlay altijd 100% van de wrapper laten worden */
+#afterWrapper #afterImage{
+  position:absolute; top:0; left:0;
+  width:100%;              /* was 960px */
+  height:100%;             /* was 640px */
+}
+#afterWrapper #afterImage img{
+  width:100%;              /* was 960px */
+  height:100%;             /* was 640px */
+  object-fit:cover;
+  object-position:center;
+}
+
+
+
+
+/* Sensor crop: schaal de beelden fysiek omlaag t.o.v. Venice 6K 3:2 */
+.sensor-mode #beforeImage img,
+.sensor-mode #afterImage img {
+  transform: scale(var(--sensor-scale, 1));
+  transform-origin: center center;
+  /* optioneel smooth */
+  transition: transform 0.2s ease;
+}
+
+/* Mobiel: iets compacter */
+@media (max-width: 767px) {
+  #infoContainer {
+    max-width: 100%;
+    padding: 0 16px;
+    gap: 16px;
+  }
+}
+ 
+#beforeImage img,
+#afterImage img {
+  display: block;
+}
+
+
+.sensor-mode #comparisonWrapper #beforeImage img,
+.sensor-mode #comparisonWrapper #afterWrapper #afterImage img {
+  object-fit: cover !important; /* was contain */
+  background: black;
+}
+
+#comparisonWrapper { aspect-ratio: auto !important; }
+
+
+/* SENSOR-MODE: hou cover, geen contain */
+.sensor-mode #comparisonWrapper #beforeImage img,
+.sensor-mode #comparisonWrapper #afterWrapper #afterImage img {
+  object-fit: cover !important;  /* fix t.o.v. contain */
+  background: black;
+}
+/* beide beeld-lagen altijd full size van de wrapper */
+#beforeImage,
+#afterImage { position:absolute; inset:0; width:100%; height:100%; }
+
+/* hard override tegen theme img{height:auto}, etc. */
+#comparisonWrapper #beforeImage img,
+#comparisonWrapper #afterWrapper #afterImage img {
+  width:100% !important;
+  height:100% !important;
+  max-width:none !important;
+  max-height:none !important;
+  object-fit:cover !important;
+  object-position:center;
+  display:block;
+}
+
+
+
+/* FULLSCREEN: wrapper vult scherm en krijgt padding = letter/pillarbox */
+#comparisonWrapper:fullscreen,
+#comparisonWrapper:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  background: #000;
+  box-sizing: border-box;
+  padding-top:    var(--lb-top, 0);
+  padding-right:  var(--lb-right, 0);
+  padding-bottom: var(--lb-bottom, 0);
+  padding-left:   var(--lb-left, 0);
+  overflow: hidden;
+}
+
+/* Binnen fullscreen: beeldlagen vullen de "bruikbare" space exact */
+#comparisonWrapper:fullscreen #beforeImage,
+#comparisonWrapper:-webkit-full-screen #beforeImage,
+#comparisonWrapper:fullscreen #afterWrapper,
+#comparisonWrapper:-webkit-full-screen #afterWrapper {
+  position: absolute;
+  /* binnen de paddingbox → gewoon 0..0 */
+  top: 0; right: 0; bottom: 0; left: 0;
+}
+
+#comparisonWrapper:fullscreen #beforeImage img,
+#comparisonWrapper:-webkit-full-screen #beforeImage img,
+#comparisonWrapper:fullscreen #afterWrapper #afterImage img,
+#comparisonWrapper:-webkit-full-screen #afterWrapper #afterImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+}
+
+/* Slider alleen over bruikbare hoogte laten lopen: 0..0 in paddingbox */
+#comparisonWrapper:fullscreen #slider,
+#comparisonWrapper:-webkit-full-screen #slider {
+  top: 0;
+  bottom: 0;
+}
+
+/* Zwarte balken mogen blijven; ze volgen dezelfde var(--lb-*) */
+#fsBars { position:absolute; inset:0; pointer-events:none; z-index:9; }
+#fsBars .bar { position:absolute; background:#000; }
+#fsBars .top    { top:0;    left:var(--lb-left,0); right:var(--lb-right,0); height:var(--lb-top,0); }
+#fsBars .bottom { bottom:0; left:var(--lb-left,0); right:var(--lb-right,0); height:var(--lb-bottom,0); }
+#fsBars .left   { top:var(--lb-top,0); bottom:var(--lb-bottom,0); left:0;  width:var(--lb-left,0); }
+#fsBars .right  { top:var(--lb-top,0); bottom:var(--lb-bottom,0); right:0; width:var(--lb-right,0); }
+.sensor-mode #comparisonWrapper #beforeImage img,
+.sensor-mode #comparisonWrapper #afterWrapper #afterImage img {
+  object-fit: cover !important;
+  object-position: center center; /* ook hier */
+  background: black;
+}
+
+
+#comparisonWrapper:fullscreen,
+#comparisonWrapper:-webkit-full-screen {
+  overflow: hidden; /* geen lekken buiten bruikbare vlak */
+}
+
+/* Slider moet boven de balken liggen */
+#slider { z-index: 10; }
+#comparisonWrapper {
+    border: 1px solid rgba(255,255,255,0.6);
+    box-sizing: border-box;
+}
+/* container */
+#comparisonWrapper{
+  position:relative;
+  background:#000;
+}
+
+/* onderlaag (right/before) */
+#beforeImgTag{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:cover; /* of contain als je dat wilt */
+  display:block;
+}
+
+/* bovenlaag (left/after) die we clippen */
+#afterWrapper{
+  position:absolute; inset:0;
+  overflow:hidden; /* belangrijk voor clipPath fallback */
+}
+#afterWrapper > img{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:cover;
+  display:block;
+}
+
+/* schuif-lijn */
+#slider{
+  position:absolute;
+  width:2px;
+  background:#fff;
+  z-index:5;
+  will-change:left,top,height;
+  pointer-events:auto;
+}
+:root { --viewer-scale: 1; }
+#beforeImgTag, #afterImgTag {
+  transform: scale(var(--viewer-scale));
+  transform-origin: center center;
+}
+/* Zorg dat uit beeld uitstekende randen worden “afgesneden” */
+#comparisonWrapper,
+#afterWrapper { overflow: hidden; }
+
+/* Scale beide beelden synchroon */
+#beforeImgTag,
+#afterImgTag {
+  transform: scale(var(--viewer-scale, 1));
+  transform-origin: center center;
+  will-change: transform;
+  transition: transform .12s linear; /* optioneel, smooth */
+}
+/* Eén bron van waarheid voor de schaal van beide beelden */
+#comparisonWrapper #beforeImage img,
+#comparisonWrapper #afterWrapper #afterImage img {
+  /* combineer sensor-scale × viewer-scale */
+  transform: scale(var(--sensor-scale, 1)) scale(var(--viewer-scale, 1)) !important;
+  transform-origin: center center;
+  will-change: transform;
+  transition: transform .12s linear;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+/* Container: compact, gecentreerd, niet te dik */
+.controls.desktop-only {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: min(1100px, calc(100% - 32px));
+  margin: 16px auto 20px;
+  padding: 16px 18px;   /* was 12px 14px → iets groter */
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  background: rgba(15,15,15,.9);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 6px 16px rgba(0,0,0,.35);
+  box-sizing: border-box;
+}
+/* Twee rijen */
+.controls.desktop-only .row{
+  display: flex;
+  flex-wrap: wrap;            /* breekt netjes i.p.v. uit het vak vallen */
+  align-items: center;
+  justify-content: center;
+  gap: 8px 10px;
+}
+
+.controls.desktop-only .row-1{ row-gap: 10px; }
+.controls.desktop-only .row-2{ margin-top: 8px; }
+
+/* Lens/T-stop duo’s */
+.controls.desktop-only .inline{
+  display: flex;
+  gap: 8px;
+}
+
+/* Eén hoogte voor alles */
+.controls.desktop-only select,
+.controls.desktop-only .control-button,
+#scaleCtrl{
+  height: 36px;
+  line-height: 34px;
+}
+
+/* Slider-chip (scale) in de stijl van de knoppen */
+#scaleCtrl.chip{
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: 0 10px;
+  background: #161616;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+#scaleCtrl input[type="range"]{
+  width: 120px;
+  height: 4px;
+  accent-color: #3a8bfd;   /* moderne browsers */
+}
+
+/* Buttons/selects consistent */
+.controls.desktop-only select,
+.controls.desktop-only .control-button{
+  padding: 0 12px;
+  background: #161616;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+}
+.controls.desktop-only select:focus,
+.controls.desktop-only .control-button:focus{
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0,123,255,.35);
+  border-color: #007bff;
+}
+
+/* Klein scherm: laat rij 1 netjes doorbreken */
+@media (max-width: 800px){
+  #scaleCtrl input[type="range"]{ width: 100px; }
+}
+/* --- Scale slider skinning (blend met buttons) --- */
+#scaleCtrl.chip input[type="range"]{
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  width: 140px;           /* iets ruimer op desktop */
+  height: 18px;           /* geeft ruimte voor de thumb */
+  margin: 0;
+  padding: 0;
+}
+
+/* Track */
+#scaleCtrl.chip input[type="range"]::-webkit-slider-runnable-track{
+  height: 4px;
+  background: #2a2a2a;
+  border-radius: 999px;
+}
+#scaleCtrl.chip input[type="range"]::-moz-range-track{
+  height: 4px;
+  background: #2a2a2a;
+  border-radius: 999px;
+}
+
+/* Thumb */
+#scaleCtrl.chip input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #3a8bfd;
+  border: 2px solid #0e1621; /* subtiele rand zodat hij ‘zit’ op de track */
+  margin-top: -5px;          /* centreert op 4px track */
+  cursor: pointer;
+}
+#scaleCtrl.chip input[type="range"]::-moz-range-thumb{
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #3a8bfd;
+  border: 2px solid #0e1621;
+  cursor: pointer;
+}
+
+/* Hover/focus states */
+#scaleCtrl.chip input[type="range"]:hover::-webkit-slider-thumb{ background: #59a2ff; }
+#scaleCtrl.chip input[type="range"]:focus{ outline: none; }
+/* Houd select’s leesbaar bij wrap */
+#cameraSelect, #sensorFormatSelect { min-width: 170px; }
+#focalLength { min-width: 110px; }
+
+/* ---- Controls container ---- */
+.controls.desktop-only{
+  position: sticky; top: 0; z-index: 50;
+  width: min(1100px, calc(100% - 32px));
+  margin: 16px auto 20px; padding: 12px 14px;
+  border: 1px solid #2a2a2a; border-radius: 10px;
+  background: rgba(15,15,15,.9);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 6px 16px rgba(0,0,0,.35);
+  box-sizing: border-box;
+}
+
+/* Two rows */
+.controls.desktop-only .row{
+  display:flex; align-items:center; justify-content:center;
+  gap: 8px 10px;
+}
+
+/* Row-1: single line on desktop; may wrap only on small screens */
+.controls.desktop-only .row-1{
+  flex-wrap: wrap;              /* allows wrap on small widths */
+  row-gap: 10px;
+}
+@media (min-width: 1100px){
+  .controls.desktop-only .row-1{ flex-wrap: nowrap; }  /* keep 1 line */
+}
+
+/* Row-2: lenses + T-stops, always one line on desktop */
+.controls.desktop-only .row-2{
+  margin-top: 8px;
+  flex-wrap: nowrap;
+}
+@media (max-width: 900px){
+  .controls.desktop-only .row-2{ flex-wrap: wrap; }    /* allow wrap on small screens */
+}
+
+/* Inline pair for lens + t-stop */
+.controls.desktop-only .inline{ display:flex; gap:8px; }
+
+/* Make all controls the same height & compact */
+.controls.desktop-only select,
+.controls.desktop-only .control-button,
+#scaleCtrl.chip{
+  height: 36px; line-height: 34px;
+  padding: 0 10px;
+  background: #161616; border: 1px solid #3a3a3a; border-radius: 8px;
+  font-size: 14px;
+}
+
+/* Icon alignment fix for buttons */
+.control-button{
+  display: inline-flex;              /* centers icons */
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;                        /* space between icon & text (if any) */
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Make selects a bit narrower so row-1 fits on one line */
+#cameraSelect, #sensorFormatSelect, #focalLength { min-width: 130px; }
+#leftLens, #rightLens { min-width: 200px; }
+#tStopLeftSelect, #tStopRightSelect { min-width: 90px; }
+
+/* Scale chip styled like a button */
+#scaleCtrl.chip{
+  display:inline-flex; align-items:center; gap:.5rem;
+  white-space:nowrap;
+}
+#scaleCtrl #scaleVal{ min-width: 44px; text-align:right; }
+#scaleCtrl input[type="range"]{ width: 120px; height: 4px; accent-color: #3a8bfd; }
+
+/* Focus ring consistent */
+.controls.desktop-only select:focus,
+.controls.desktop-only .control-button:focus{
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0,123,255,.35);
+  border-color: #007bff;
+}
+
+/* Small screens: allow row-1 to break early */
+@media (max-width: 1000px){
+  #cameraSelect, #sensorFormatSelect, #focalLength { min-width: 120px; }
+  #scaleCtrl input[type="range"]{ width: 100px; }
+}
+/* === Side-by-Side (SxS) === */
+/* Wrapper bovenop, vult bruikbare gebied (rekening met letter/pillarbox vars) */
+#sbsWrapper {
+  position: absolute;
+  inset: 0;
+  z-index: 3; /* boven before/after */
+  display: none; /* standaard uit */
+  padding: var(--lb-top,0) var(--lb-right,0) var(--lb-bottom,0) var(--lb-left,0);
+  box-sizing: border-box;
+}
+
+/* In SxS: twee panelen naast elkaar */
+.sbs-mode #sbsWrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;         /* subtiel lijntje ertussen */
+  width: 100%;
+  height: 100%;
+}
+
+/* Panelen + images vullen hun helft; 'contain' toont volledige frames */
+#sbsWrapper .pane {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#sbsWrapper .pane img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;                 /* <<< volledige frame zichtbaar */
+  transform: scale(var(--viewer-scale, 1));
+  transform-origin: center;
+}
+
+/* In SxS: verberg single-view lagen en slider */
+.sbs-mode #afterWrapper,
+.sbs-mode #beforeImage,
+.sbs-mode #beforeImgTag,
+.sbs-mode #slider {
+  display: none !important;
+}
+/* OVERRIDE — iets breder vak achter de knoppen */
+.controls.desktop-only{
+  width: min(1400px, calc(100% - 32px)); /* iets ruimer achter de knoppen */
+}
+@media (min-width: 1240px){
+  .controls.desktop-only .row-1{ flex-wrap: nowrap; } /* rij 1 op één lijn houden */
+}
+/* Globale defaults */
+:root {
+  --sensor-scale: 1;
+  --viewer-scale: 1;
+}
+
+/* Zelfde schaal toepassen op alle viewer images */
+#comparisonWrapper img {
+  transform: scale(calc(var(--sensor-scale) * var(--viewer-scale)));
+  transform-origin: center center;
+}
+
+/* SxS layout netjes contain + geen clipping door scale */
+.sbs-mode #sbsWrapper .pane { overflow: hidden; }
+.sbs-mode #sbsWrapper img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.comparison-wrapper.sbs-mode {
+  width: 1600px;   /* bredere variant bij Side-by-Side */
+}
+/* Default breedtes */
+#comparisonWrapper { max-width: 1200px; }          /* of 1200px als je dat wilt */
+#infoContainer     { max-width: 1400px; }
+.controls.desktop-only { width: min(1400px, calc(100% - 32px)); }
+
+/* SxS breder maken wanneer de class op wrapper of body staat */
+#comparisonWrapper.sbs-mode,
+body.sbs-mode #comparisonWrapper { 
+  max-width: 1600px;
+}
+body.sbs-mode #infoContainer {
+  max-width: 1600px;
+}
+body.sbs-mode .controls.desktop-only {
+  width: min(1600px, calc(100% - 32px));
+}
+/* Viewer */
+#comparisonWrapper.sbs-mode,
+body.sbs-mode #comparisonWrapper {
+  max-width: 1600px;
+}
+
+/* Info + controls blijven 1400px, óók in SxS */
+#infoContainer { max-width: 1400px !important; }
+.controls.desktop-only { width: min(1400px, calc(100% - 32px)) !important; }
+/* In SxS dezelfde schaal als single view: sensor-scale × viewer-scale */
+.sbs-mode #sbsWrapper .pane img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  transform: scale(calc(var(--sensor-scale, 1) * var(--viewer-scale, 1)));
+  transform-origin: center;
+}
+/* SxS layout */
+#sbsWrapper {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+#sbsWrapper .pane {
+  flex: 1 1 50%;
+  position: relative;
+  overflow: hidden;            /* mag, maar niet verplicht */
+}
+#sbsWrapper .pane img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;         /* ← toont hele foto, geen crop */
+  image-rendering: auto;
+}
+ /* In SxS wil je dat het wrapper-aspectratio niet forceert */
+#comparisonWrapper.sbs-mode {
+  aspect-ratio: auto !important;
+}
+/* === Side-by-Side (SxS) — clean === */
+#sbsWrapper{
+  position:absolute; inset:0;
+  z-index:3;
+  display:none;              /* standaard uit */
+  padding: var(--lb-top,0) var(--lb-right,0) var(--lb-bottom,0) var(--lb-left,0);
+  box-sizing:border-box;
+}
+
+.sbs-mode #sbsWrapper{
+  display:flex;
+  width:100%; height:100%;
+}
+
+#sbsWrapper .pane{
+  flex:1 1 50%;
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+#sbsWrapper .pane img{
+  width:100%; height:100%;
+  object-fit:cover;          /* of 'contain' als je HELE frames wil zien */
+  transform: scale(calc(var(--sensor-scale,1) * var(--viewer-scale,1)));
+  transform-origin:center;
+}
+
+/* Verberg single-view lagen + slider in SxS */
+.sbs-mode #afterWrapper,
+.sbs-mode #beforeImage,
+.sbs-mode #beforeImgTag,
+.sbs-mode #slider{
+  display:none !important;
+}
+
+/* Maak viewer breder in SxS (optioneel) */
+body.sbs-mode #comparisonWrapper{ max-width:1600px; }
+/* SxS layout */
+#sbsWrapper { display: none; width:100%; height:100%; gap:0; }
+#sbsWrapper .pane { flex:1 1 50%; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+#sbsWrapper img { width:100% !important; height:100% !important; object-fit:contain !important; }
+
+/* Wanneer SxS actief is, niet met slider interfereren */
+.sbs-mode #slider { display:none !important; }
+.sbs-mode #afterWrapper,
+.sbs-mode #beforeImgTag { display:none !important; }
+
+/* Letter/pillarbox via custom properties (worden door JS gezet) */
+#comparisonWrapper {
+  --lb-top:0px; --lb-bottom:0px; --lb-left:0px; --lb-right:0px;
+  position:relative;
+}
+#slider { position:absolute; top:0; bottom:0; width:2px; background:#fff; }
+body { background:#000; }
+#toolRoot {
+  width: min(1200px, 96vw);
+  margin: 0 auto;
+}
+/* compact controls */
+body.pdf-compact .controls {
+  padding: 6px 8px;
+  gap: 6px;
+}
+body.pdf-compact .controls .btn,
+body.pdf-compact .controls button {
+  padding: 4px 10px;
+  height: 28px;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 6px;
+}
