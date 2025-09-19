@@ -1,106 +1,103 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="nl">
 <head>
-  <meta charset="UTF-8">
-  <title>Lens Comparison</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TVL Rental – Uitleenformulier & akkoord</title>
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- jsPDF & AutoTable (CDN) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+  <!-- Signature Pad -->
+  <script defer src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
+  <!-- PapaParse voor CSV -->
+  <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <script defer src="script.js"></script>
 </head>
 <body>
+  <div class="container">
+    <header>
+      <h1>TVL Rental – Overdrachtsformulier</h1>
+      <p class="subtitle">Vul in, controleer de lijst, teken & download PDF.</p>
+    </header>
 
-<div class="controls desktop-only">
- <div class="row row-1">
-  <button id="toggleButton" class="control-button">↔ Flip</button>
-  <button id="fullscreenButton" class="control-button">⛶ Fullscreen</button>
-  <button id="detailViewToggle" class="control-button">🔍 Detail View</button>
- <button id="sbsToggle" type="button" class="control-button">Side-by-Side</button>
-  <button id="downloadPdfButton" class="control-button">⇩ Download PDF</button>
+    <form id="rentalForm">
+      <section>
+        <h2>Huurder & Project</h2>
+        <div class="grid">
+          <label>Naam huurder*<input type="text" name="renterName" required /></label>
+          <label>Bedrijf<input type="text" name="company" /></label>
+          <label>E-mail*<input type="email" name="email" required /></label>
+          <label>Telefoon<input type="tel" name="phone" /></label>
+          <label>Projectnaam*<input type="text" name="project" required /></label>
+          <label>PO/Referentie<input type="text" name="po" /></label>
+        </div>
+      </section>
 
-  <label id="scaleCtrl" class="chip">
-    <span id="scaleVal">100%</span>
-    <input id="scaleSlider" type="range" min="100" max="130" value="100" step="1">
-  </label>
+      <section>
+        <h2>Periode</h2>
+        <div class="grid">
+          <label>Ophaal datum/tijd*<input type="datetime-local" name="pickup" required /></label>
+          <label>Retour datum/tijd*<input type="datetime-local" name="return" required /></label>
+          <label>Locatie ophalen<input type="text" name="pickupLocation" placeholder="Beek en Donk (bijv.)" /></label>
+          <label>Locatie retour<input type="text" name="returnLocation" /></label>
+        </div>
+      </section>
 
-  <select id="cameraSelect"></select>
-  <select id="sensorFormatSelect" disabled></select>
-  <button id="flareToggle" class="control-button" data-mode="noflare">Flare: OFF</button>
-</div>
+      <section>
+        <h2>Algemene voorwaarden</h2>
+        <p>Lees de <a id="termsLink" href="AV.pdf" target="_blank" rel="noopener">Algemene Voorwaarden</a> zorgvuldig.</p>
+        <label class="checkbox">
+          <input type="checkbox" id="acceptTerms" required />
+          <span>Ik heb de algemene voorwaarden gelezen en ga akkoord*</span>
+        </label>
+      </section>
 
-<div class="row row-2">
-  <select id="leftLens"></select>
-  <select id="tStopLeftSelect"></select>
-  <select id="rightLens"></select>
-  <select id="tStopRightSelect"></select>
-  <!-- Goed → nu in row 2 -->
-  <select id="focalLength" title="Focal length">
-    <option value="35mm">35mm</option>
-    <option value="75mm" selected>75mm</option>
-  </select>
-</div>
+      <section>
+        <h2>Gear-lijst</h2>
+        <details class="hint"><summary>CSV import (optioneel)</summary>
+          <p>Upload een CSV met kolommen: <strong>Item, Serial, Qty, Condition</strong>.</p>
+          <input type="file" id="csvInput" accept=".csv" />
+        </details>
+
+        <div class="items">
+          <table id="itemsTable">
+            <thead>
+              <tr><th>Item</th><th>Serial</th><th>Qty</th><th>Condition</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div class="row add">
+            <input type="text" id="addItem" placeholder="Item" />
+            <input type="text" id="addSerial" placeholder="Serial/ID" />
+            <input type="number" id="addQty" placeholder="Qty" min="1" value="1" />
+            <input type="text" id="addCondition" placeholder="Condition (bijv. 'netjes')" />
+            <button type="button" id="btnAdd">Toevoegen</button>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Handtekening</h2>
+        <p>Ondergetekende bevestigt dat alle bovengenoemde items in goede orde zijn ontvangen en akkoord gaat met de algemene voorwaarden.</p>
+        <div class="sig-wrap">
+          <canvas id="signaturePad" width="700" height="220"></canvas>
+          <div class="sig-actions">
+            <button type="button" id="btnClearSig">Wissen</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="actions">
+        <button type="submit" id="btnGenerate">Genereer PDF</button>
+      </section>
+    </form>
+
+    <footer>
+      <small>© <span id="year"></span> TVL Rental – Interne link, niet doorzoekbaar.</small>
+    </footer>
   </div>
-</div>
-</div>
- <div id="comparisonWrapper" class="desktop-only" tabindex="0">
-    <div id="beforeImage">
-      <img id="beforeImgTag" alt="Right lens preview">
-    </div>
-
-    <!-- === DETAIL VIEW OVERLAY (ZOOM) === -->
-<div id="detailOverlay">
-  <div id="leftDetail" class="detail-view-square"><img alt="Left zoom"></div>
-  <div id="rightDetail" class="detail-view-square"><img alt="Right zoom"></div>
-</div>
-
-    <div id="afterWrapper">
-      <div id="afterImage">
-        <img id="afterImgTag" alt="Left lens preview">
-      </div>
-    </div>
-
-<div id="fsBars" aria-hidden="true">
-  <div class="bar top"></div>
-  <div class="bar bottom"></div>
-  <div class="bar left"></div>
-  <div class="bar right"></div>
-</div>
-    
-    <div id="slider"></div>
-  </div>
-
- <div id="infoContainer" class="desktop-only">
-  <div class="infoCol">
-    <div id="leftLabel"></div>
-    <button id="downloadLeftRawButton" class="control-button" disabled>⬇ Download Left RAW</button>
-  </div>
-
-  <div class="infoCol">
-    <div id="rightLabel"></div>
-    <button id="downloadRightRawButton" class="control-button" disabled>⬇ Download Right RAW</button>
-  </div>
-</div>
-  
-  <div id="lensInfo" class="desktop-only"></div>
-
-  <div id="explanationBox" class="desktop-only">
-    <p>⚠️ Let op: sommige lenzen zijn visueel gematcht. Als je bijvoorbeeld 35mm kiest, zie je soms een lens van 32 of 37mm die op 35mm lijkt qua field of view. Dit is om een eerlijke vergelijking te bieden.</p>
-  </div>
-
-  <!-- === MOBILE VIEW ONLY: Embedded fullscreen iframe === -->
-  <div class="lens-frame-outer mobile-only">
-    <div class="lens-frame-wrapper">
-      <iframe 
-        src="https://tvlmedia.github.io/lens-compare/" 
-        allowfullscreen 
-        loading="lazy">
-      </iframe>
-    </div>
-  </div>
-
-  <!-- === Scripts === -->
-   <!-- === Scripts === -->
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script defer src="script.js"></script>
-
 </body>
 </html>
