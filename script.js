@@ -34,6 +34,58 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 function isValidEmail(s) {
   return typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
+// ——— validators / normalizers
+const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+const NL_PHONE_RE = /^(?:\+31|0031|0)\s*6(?:[\s-]?\d){8}$/;
+
+function looksLikePerson(name){
+  const s = (name||"").trim();
+  // Voorbeelden: "Pipo de Clown", "Jan van Dijk"
+  return /^([A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+){0,2})$/.test(s);
+}
+function looksLikeCompany(s){
+  s = (s||"").trim();
+  if (!s) return false;
+  if (EMAIL_RE.test(s) || NL_PHONE_RE.test(s)) return false;
+  // heuristieken: BV, B.V., VOF, NV, Studio, Media, Productions, Group etc. of ALLCAPS, of 1 woord + cijfer
+  if (/\b(BV|B\.V\.|VOF|N\.?V\.?|Holding|Group|Studio|Media|Productions?|Creative|Events?)\b/i.test(s)) return true;
+  if (/^[A-Z0-9&/'\-. ]{3,}$/.test(s) && s.split(" ").length <= 6) return true;
+  return s.split(" ").length <= 6; // milde fallback
+}
+function normalizePhoneNL(raw){
+  let s = (raw||"").replace(/[^\d+]/g,"");
+  if (s.startsWith("06")) s = "+31" + s.slice(1);
+  if (s.startsWith("0031")) s = "+" + s.slice(2);
+  if (s.startsWith("31") && !s.startsWith("+31")) s = "+31" + s.slice(2);
+  return s;
+}
+
+// ——— gate input classificatie
+function classifyLoginInput(v){
+  const s = (v||"").trim();
+  if (EMAIL_RE.test(s)) return { type:"email", value:s };
+  if (NL_PHONE_RE.test(s.replace(/\s+/g,"").replace(/-/g,""))) return { type:"phone", value:normalizePhoneNL(s) };
+  if (looksLikePerson(s)) return { type:"person", value:s };
+  if (looksLikeCompany(s)) return { type:"company", value:s };
+  return { type:"unknown", value:s };
+}
+
+// ——— “slim” setten: overschrijft ook foute waarden (tel/e-mail in naam/bedrijf)
+function setSmart(sel, val, validator){
+  if (!val) return;
+  const el = document.querySelector(sel);
+  if (!el) return;
+  const cur = (el.value||"").trim();
+  const bad = !cur || (validator && !validator(cur));
+  // overschrijf als leeg of ‘duidelijk fout’ (bv. tel/e-mail in tekstvak)
+  const clearlyWrong =
+    /name|renter/i.test(sel)  ? (EMAIL_RE.test(cur) || NL_PHONE_RE.test(cur)) :
+    /company/i.test(sel)      ? (EMAIL_RE.test(cur) || NL_PHONE_RE.test(cur)) :
+    /email/i.test(sel)        ? !EMAIL_RE.test(cur) :
+    /phone/i.test(sel)        ? !NL_PHONE_RE.test(cur.replace(/\s+/g,"").replace(/-/g,"")) : false;
+
+  if (bad || clearlyWrong) el.value = val;
+}
 
 function base64FromArrayBuffer(ab) {
   const bytes = new Uint8Array(ab);
@@ -540,34 +592,40 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
   const sig   = url.searchParams.get("sig");
   const qName = url.searchParams.get("name");
 
-  async function unlockWith(name) {
-  // zet (of ververs) sig+name in URL
-  const hash = await sha256(name);
+ async function unlockWith(inputValue) {
+  // URL bijwerken
+  const hash = await sha256(inputValue);
   const next = new URL(location.href);
-  next.searchParams.set("sig", hash);
-  next.searchParams.set("name", name);
+  next.searchParams.set("sig",  hash);
+  next.searchParams.set("name", inputValue);
   history.replaceState(null, "", next.toString());
 
   // overlay sluiten
   document.body.classList.remove("locked");
 
-  // slimme naamverwerking
-  const looksLikePerson = /^[A-Z][a-z]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?$/.test(name.trim());
-  const nameField = document.querySelector('input[name="renterName"]');
-  const companyField = document.querySelector('input[name="company"]');
+  // ——— zet gate-invoer op het JUISTE veld
+  const kind = classifyLoginInput(inputValue);
 
-  if (looksLikePerson) {
-    if (nameField && !nameField.value) nameField.value = name.trim();
-  } else {
-    if (companyField && !companyField.value) companyField.value = name.trim();
+  if (kind.type === "email") {
+    setSmart('input[name="email"]', kind.value, v => EMAIL_RE.test(v));
+  } else if (kind.type === "phone") {
+    setSmart('input[name="phone"]', kind.value, v => NL_PHONE_RE.test(v.replace(/\s+/g,"").replace(/-/g,"")));
+  } else if (kind.type === "person") {
+    setSmart('input[name="renterName"]', kind.value, v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
+  } else if (kind.type === "company" || kind.type === "unknown") {
+    // unknown → behandel als bedrijf (valt later te corrigeren door PDF-parser)
+    setSmart('input[name="company"]', kind.value, v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
   }
 
-  (nameField || companyField || document.querySelector('input,select,textarea,button'))?.focus?.();
+  // focus ergens bruikbaars
+  (document.querySelector('input[name="renterName"]')
+    || document.querySelector('input[name="company"]')
+    || document.querySelector('input,select,textarea,button'))?.focus?.();
 
   // signature canvas natrappen
   setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
 
-  // indien ?order=... aanwezig is -> importeren
+  // PDF import
   try { await afterUnlock(); } catch (e) { console.error(e); }
 }
 
