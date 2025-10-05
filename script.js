@@ -962,7 +962,6 @@ function fillRenterFromText(txt) {
   setSmart('input[name="email"]',      email,   v => EMAIL_ONE.test(v));
   setSmart('input[name="phone"]',      phone,   v => NL_PHONE_RE.test(String(v).replace(/\s+/g,"").replace(/-/g,"")));
 }
-}
 function fillDatesFromText(txt){
   if (!txt) return;
 
