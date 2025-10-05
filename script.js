@@ -481,7 +481,7 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
 })();
 // ====== PDF import uit Drive + parsing ======
 // Drive-endpoint (Apps Script dat de PDF uit je map leest)
-const DRIVE_ENDPOINT = "https://script.google.com/macros/library/d/1A9DQaBx4yv3SyobKj_Nslc0seEo-MZYnqgq1U69FIOKrWBlEQSsvvwoL/2";
+const DRIVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbwOHc7ytcXLyi5D7HWrFha_hZbG5teEr9qFuprqLQ3h1OeePvkM0-LkYmbmgtafH1A/exec";
 
 async function afterUnlock(){
   const url = new URL(location.href);
