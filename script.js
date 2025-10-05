@@ -38,6 +38,7 @@ $("#btnClearSig").addEventListener("click", () => signaturePad.clear());
 
 // ===== Locaties dropdowns =====
 const ADDRESS_OFFICE = "Beek en Donk (Donkersvoorstestraat 3)";
+
 function syncLocation(mode){
   const modeSel = document.getElementById(mode + "Mode");
   const deliveryWrap = document.getElementById(mode + "DeliveryWrap");
@@ -46,10 +47,15 @@ function syncLocation(mode){
   if (!modeSel || !deliveryWrap || !deliveryInput || !hiddenField) return;
 
   if (modeSel.value === "delivery"){
-    deliveryWrap.style.display = "";
+    deliveryWrap.style.display = "block";
+    deliveryInput.disabled = false;
     hiddenField.value = (deliveryInput.value || "").trim() || "Brengen – adres nog invullen";
+    // kleine delay zodat de browser eerst toont, dan focus
+    setTimeout(()=> deliveryInput.focus(), 0);
   } else {
     deliveryWrap.style.display = "none";
+    deliveryInput.disabled = true;
+    deliveryInput.value = "";
     hiddenField.value = ADDRESS_OFFICE;
   }
 }
