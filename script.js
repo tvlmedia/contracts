@@ -690,7 +690,6 @@ function fillRenterFromText(txt) {
   if (name) document.querySelector('input[name="renterName"]')?.value = name;
 }
 
-// Booqable items parser (heuristisch)
 function parseBooqableItems(text) {
   const rows = [];
   const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
