@@ -36,25 +36,26 @@
   <noscript>Je hebt JavaScript nodig om dit formulier te gebruiken.</noscript>
 
   <!-- Gate / naamcontrole -->
-  <div id="gate" class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
-    <div class="gate-card">
-      <h2 id="gate-title">Controle</h2>
-      <p>Vul je naam in om de overdracht te openen.</p>
+ <div id="gate" class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+  <div class="gate-card">
+    <h2 id="gate-title">Controle</h2>
+    <p>Vul je naam in om de overdracht te openen.</p>
 
-      <label for="gateName">Naam</label>
-      <input
-        type="text"
-        id="gateName"
-        placeholder="Voor- en achternaam"
-        autocomplete="name"
-        enterkeyhint="go"
-        inputmode="text"
-      />
+    <label for="gateName">Naam</label>
+    <input
+      type="text"
+      id="gateName"
+      placeholder="Voor- en achternaam"
+      autocomplete="name"
+      enterkeyhint="go"
+      inputmode="text"
+      autofocus
+    />
 
-      <button type="button" id="gateBtn" class="primary">Doorgaan</button>
-      <p id="gateErr" class="gate-err hidden" role="alert">Naam klopt niet. Probeer opnieuw.</p>
-    </div>
+    <button type="button" id="gateBtn" class="primary">Doorgaan</button>
+    <p id="gateErr" class="gate-err hidden" role="alert">Naam klopt niet. Probeer opnieuw.</p>
   </div>
+</div>
 
   <!-- ==================== FORMULIER ==================== -->
   <div class="container" aria-live="polite">
