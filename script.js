@@ -58,7 +58,6 @@ function toast(msg, isError=false){
   toast._t = setTimeout(()=> el.style.display = "none", 2600);
 }
 
-// ===== Date/Time pickers (Flatpickr) =====
 
 // ===== Date/Time pickers (Flatpickr) =====
 let fpPickup, fpReturn;
@@ -79,24 +78,33 @@ let fpPickup, fpReturn;
     disableMobile: true
   };
 
-  // helpers
   const addMinutes = (d, mins) => { const x = new Date(d); x.setMinutes(x.getMinutes()+mins,0,0); return x; };
   const midnight   = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
   function hardenReturnCalendar(pick){
-    // blokkeer alle dagen vóór de ophaaldag
-    const minDay = midnight(pick);
+    if (!fpReturn) return;                               // << guard!
+    const minDay   = midnight(pick);
+    const minStamp = pick.getTime();
+
+    // Blokkeer dagen vóór de ophaaldag
     fpReturn.set("disable", [ (date) => date < minDay ]);
-    // minimale datum/tijd: ophaaltijd
+
+    // Minimale datum/tijd en corrigeer huidige waarde
     fpReturn.set("minDate", pick);
-    // ensure minimaal +15 min t.o.v. pickup (pas 15 → 60 aan voor 1 uur)
-    const minReturn = addMinutes(pick, 15);
+    const minReturn = addMinutes(pick, 15);             // buffer (pas 15 → 60 aan voor 1 uur)
     const current   = fpReturn.selectedDates[0];
-    if (!current || current < minReturn) {
+    if (!current || current.getTime() < minStamp || current < minReturn) {
       fpReturn.setDate(minReturn, false);
     }
   }
 
+  // 1) Init RETURN eerst
+  fpReturn = flatpickr("#returnDateTime", {
+    ...common,
+    minDate: rounded
+  });
+
+  // 2) Init PICKUP daarna
   fpPickup = flatpickr("#pickupDateTime", {
     ...common,
     defaultDate: rounded,
@@ -106,16 +114,10 @@ let fpPickup, fpReturn;
     onValueUpdate: (sel) => hardenReturnCalendar(sel[0] || rounded)
   });
 
-  fpReturn = flatpickr("#returnDateTime", {
-    ...common,
-    minDate: rounded,
-    onOpen: () => {
-      const pick = fpPickup.selectedDates[0] || rounded;
-      hardenReturnCalendar(pick);
-    }
-  });
+  // 3) Eerste hardening (voor het geval onReady eerder niet afging)
+  hardenReturnCalendar(fpPickup.selectedDates[0] || rounded);
 
-  // optioneel: beschikbaar maken voor andere functies
+  // optioneel: global voor debug
   window.fpPickup = fpPickup;
   window.fpReturn = fpReturn;
 })();
