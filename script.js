@@ -25,6 +25,34 @@ window.addEventListener("load", () => {
 });
 $("#btnClearSig").addEventListener("click", () => signaturePad.clear());
 
+function base64FromArrayBuffer(ab){
+  const bytes = new Uint8Array(ab);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+// Mini toast (UI feedback)
+function toast(msg, isError=false){
+  let el = document.getElementById("tvl-toast");
+  if (!el){
+    el = document.createElement("div");
+    el.id = "tvl-toast";
+    el.style.cssText = `
+      position: fixed; left: 50%; transform: translateX(-50%);
+      bottom: 18px; z-index: 99999; padding: 10px 14px; border-radius: 10px;
+      background: ${isError ? "#b00020":"#2c7be5"}; color: #fff; font: 14px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      box-shadow: 0 10px 20px rgba(0,0,0,.25);
+    `;
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.background = isError ? "#b00020" : "#2c7be5";
+  el.style.display = "block";
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=> el.style.display = "none", 2600);
+}
+
 // ===== Date/Time pickers (Flatpickr) =====
 (function initDateTimePickers(){
   if (!window.flatpickr) return;
@@ -235,8 +263,49 @@ form.addEventListener("submit", async (e) => {
   const pageH = doc.internal.pageSize.getHeight();
   drawParagraph(doc, foot, margin, pageH - 40, 522, 10);
 
-  const safeProject = (data.project || "project").replace(/[^a-z0-9_\-]+/gi,"_");
-  doc.save(`TVL_Rental_Overdracht_${safeProject}_${id}.pdf`);
+ const safeProject = (data.project || "project").replace(/[^a-z0-9_\-]+/gi,"_");
+const filename = `TVL_Rental_Overdracht_${safeProject}_${id}.pdf`;
+
+// 1) Download voor de huurder
+doc.save(filename);
+
+// 2) Stuur per mail naar TVL (via Apps Script)
+try {
+  // jsPDF → ArrayBuffer → base64
+  const ab = doc.output("arraybuffer");
+  const b64 = base64FromArrayBuffer(ab);
+
+  // Zet hier jouw Apps Script URL neer:
+  const ENDPOINT = "PASTE_HIER_JE_APPS_SCRIPT_WEB_APP_URL";
+
+  // Gebruik text/plain om CORS preflight te voorkomen
+  await fetch(ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({
+      subject: `TVL Overdracht – ${safeProject} (${id})`,
+      body: `
+        <p>Nieuwe overdracht PDF.</p>
+        <ul>
+          <li><b>Formulier ID</b>: ${id}</li>
+          <li><b>Project</b>: ${data.project || ""}</li>
+          <li><b>Huurder</b>: ${data.renterName || ""}</li>
+          <li><b>Ophaal</b>: ${data.pickup || ""}</li>
+          <li><b>Retour</b>: ${data.return || ""}</li>
+        </ul>
+        <p>Bijlage: ${filename}</p>
+      `,
+      filename,
+      mimeType: "application/pdf",
+      attachmentBase64: b64
+    })
+  });
+
+  toast("PDF gemaild naar info@tvlrental.nl ✅");
+} catch (err) {
+  console.error(err);
+  toast("Mailen mislukte (verbinding) — PDF wel gedownload.", true);
+}
 });
 
 // ===== PDF layout helpers =====
