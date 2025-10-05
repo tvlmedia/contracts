@@ -784,6 +784,28 @@ function fillRenterFromText(txt){
   if (name    && nameEl    && !nameEl.value)    nameEl.value    = name;
   if (company && companyEl && !companyEl.value) companyEl.value = company;
 }
+function fillDatesFromText(txt){
+  if (!txt) return;
+
+  // NL/EN datum: 31-12-2025 of 31/12/2025; tijd 08:30 of 8:30
+  const d = "(\\d{2}[-\\/]\\d{2}[-\\/]\\d{4})";
+  const t = "(\\d{1,2}:\\d{2})";
+  const rxPick = new RegExp(`(?:Pickup|Ophaal|Start)\\s+${d}\\s+${t}`, "i");
+  const rxRet  = new RegExp(`(?:Return|Retour|Einde)\\s+${d}\\s+${t}`, "i");
+
+  const mP = rxPick.exec(txt);
+  const mR = rxRet.exec(txt);
+
+  const fmt = (d, t) => `${d}, ${t}`;
+
+  const fpP = document.getElementById("pickupDateTime")?._flatpickr;
+  const fpR = document.getElementById("returnDateTime")?._flatpickr;
+
+  if (mP && fpP) fpP.setDate(fmt(mP[1], mP[2]), true);   // true = trigger change
+  if (mR && fpR) fpR.setDate(fmt(mR[1], mR[2]), true);
+}
+fillRenterFromText(text);
+if (typeof fillDatesFromText === "function") fillDatesFromText(text);
 
 /* ==== Sterke multi-pass item parser (Booqable-achtig) ==== */
 function parseBooqableItems(rawText){
