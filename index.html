@@ -4,22 +4,23 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TVL Rental – Uitleenformulier & akkoord</title>
+
   <link rel="stylesheet" href="style.css" />
 
-  <!-- jsPDF & AutoTable (CDN) -->
+  <!-- jsPDF & AutoTable -->
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
   <!-- Signature Pad -->
   <script defer src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
-  <!-- PapaParse voor CSV -->
+  <!-- PapaParse -->
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-  <script defer src="script.js"></script>
+  <!-- Flatpickr voor kalender/klok (één keer, zonder defer) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <!-- Flatpickr voor kalender/klok -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+  <!-- JOUW script als laatste -->
+  <script defer src="script.js"></script>
 </head>
 <body>
   <div class="container">
@@ -41,13 +42,47 @@
         </div>
       </section>
 
+      <!-- *** ENKEL DE NIEUWE PERIODE-SECTIE *** -->
       <section>
         <h2>Periode</h2>
         <div class="grid">
-          <label>Ophaal datum/tijd*<input type="datetime-local" name="pickup" required /></label>
-          <label>Retour datum/tijd*<input type="datetime-local" name="return" required /></label>
-          <label>Locatie ophalen<input type="text" name="pickupLocation" placeholder="Beek en Donk (bijv.)" /></label>
-          <label>Locatie retour<input type="text" name="returnLocation" /></label>
+          <!-- Date/Time pickers -->
+          <label>Ophaal datum/tijd*
+            <input type="text" name="pickup" id="pickupDateTime" required />
+          </label>
+          <label>Retour datum/tijd*
+            <input type="text" name="return" id="returnDateTime" required />
+          </label>
+
+          <!-- Locatie ophalen -->
+          <label>Locatie ophalen
+            <select id="pickupMode">
+              <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
+              <option value="delivery">Brengen (adres invullen)</option>
+            </select>
+          </label>
+          <div id="pickupDeliveryWrap" style="display:none">
+            <label>Adres voor brengen (ophalen)
+              <input type="text" id="pickupDeliveryInput" placeholder="Straat + nr, plaats" />
+            </label>
+          </div>
+          <!-- verborgen veld dat naar PDF gaat -->
+          <input type="hidden" name="pickupLocation" id="pickupLocation" value="Beek en Donk (Donkersvoorstestraat 3)" />
+
+          <!-- Locatie retour -->
+          <label>Locatie retour
+            <select id="returnMode">
+              <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
+              <option value="delivery">Brengen (adres invullen)</option>
+            </select>
+          </label>
+          <div id="returnDeliveryWrap" style="display:none">
+            <label>Adres voor brengen (retour)
+              <input type="text" id="returnDeliveryInput" placeholder="Straat + nr, plaats" />
+            </label>
+          </div>
+          <!-- verborgen veld dat naar PDF gaat -->
+          <input type="hidden" name="returnLocation" id="returnLocation" value="Beek en Donk (Donkersvoorstestraat 3)" />
         </div>
       </section>
 
@@ -106,45 +141,3 @@
   </div>
 </body>
 </html>
-<section>
-  <section>
-  <h2>Periode</h2>
-  <div class="grid">
-    <!-- Date/Time pickers -->
-    <label>Ophaal datum/tijd*
-      <input type="text" name="pickup" id="pickupDateTime" required />
-    </label>
-    <label>Retour datum/tijd*
-      <input type="text" name="return" id="returnDateTime" required />
-    </label>
-
-    <!-- Locatie ophalen -->
-    <label>Locatie ophalen
-      <select id="pickupMode">
-        <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
-        <option value="delivery">Brengen (adres invullen)</option>
-      </select>
-    </label>
-    <div id="pickupDeliveryWrap" style="display:none">
-      <label>Adres voor brengen (ophalen)
-        <input type="text" id="pickupDeliveryInput" placeholder="Straat + nr, plaats" />
-      </label>
-    </div>
-    <!-- Dit is de echte waarde die naar de PDF gaat -->
-    <input type="hidden" name="pickupLocation" id="pickupLocation" value="Beek en Donk (Donkersvoorstestraat 3)" />
-
-    <!-- Locatie retour -->
-    <label>Locatie retour
-      <select id="returnMode">
-        <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
-        <option value="delivery">Brengen (adres invullen)</option>
-      </select>
-    </label>
-    <div id="returnDeliveryWrap" style="display:none">
-      <label>Adres voor brengen (retour)
-        <input type="text" id="returnDeliveryInput" placeholder="Straat + nr, plaats" />
-      </label>
-    </div>
-    <input type="hidden" name="returnLocation" id="returnLocation" value="Beek en Donk (Donkersvoorstestraat 3)" />
-  </div>
-</section>
