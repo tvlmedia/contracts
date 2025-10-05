@@ -188,9 +188,24 @@ let fpPickup, fpReturn;
     console.warn("Flatpickr niet geladen");
     return;
   }
+
+  // — helpers
   const now = new Date();
-  const rounded = new Date(now);
-  rounded.setMinutes(Math.ceil(rounded.getMinutes() / 15) * 15, 0, 0);
+  const roundedNow = new Date(now);
+  roundedNow.setMinutes(Math.ceil(roundedNow.getMinutes() / 15) * 15, 0, 0);
+
+  const addMinutes = (d, mins) => {
+    const x = new Date(d);
+    x.setMinutes(x.getMinutes() + mins, 0, 0);
+    return x;
+  };
+  const nextDay17 = (d) => {
+    const x = new Date(d);
+    x.setDate(x.getDate() + 1);
+    x.setHours(17, 0, 0, 0);
+    return x;
+  };
+  const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
   const common = {
     enableTime: true,
@@ -200,47 +215,59 @@ let fpPickup, fpReturn;
     disableMobile: true
   };
 
-  const addMinutes = (d, mins) => {
-    const x = new Date(d);
-    x.setMinutes(x.getMinutes() + mins, 0, 0);
-    return x;
-  };
-  const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
+  // Ensure the return calendar can’t go before pickup,
+  // and if needed, auto-bump to either pickup+15min or next day 17:00 (whichever is later).
   function hardenReturnCalendar(pick) {
     if (!fpReturn || !pick) return;
+
     const minDay = midnight(pick);
-    const minStamp = pick.getTime();
+    const minReturn = addMinutes(pick, 15);
+    const target = new Date(Math.max(minReturn.getTime(), nextDay17(pick).getTime()));
 
     fpReturn.set("disable", [(date) => date < minDay]);
     fpReturn.set("minDate", pick);
-    const minReturn = addMinutes(pick, 15);
+
     const current = fpReturn.selectedDates?.[0];
-    if (!current || current.getTime() < minStamp || current < minReturn) {
-      fpReturn.setDate(minReturn, false);
+    if (!current || current.getTime() < target.getTime()) {
+      // update without triggering onChange loop
+      fpReturn.setDate(target, false);
     }
   }
 
-  fpReturn = flatpickr("#returnDateTime", { ...common, minDate: rounded });
+  // Create pickers with defaults:
+  // - pickup: now (rounded to 15m)
+  // - return: next day @ 17:00 (or pickup+15m if that’s later)
+  const defaultPickup = roundedNow;
+  const defaultReturn = new Date(
+    Math.max(nextDay17(defaultPickup).getTime(), addMinutes(defaultPickup, 15).getTime())
+  );
+
+  fpReturn = flatpickr("#returnDateTime", {
+    ...common,
+    minDate: defaultPickup,
+    defaultDate: defaultReturn
+  });
 
   fpPickup = flatpickr("#pickupDateTime", {
     ...common,
-    defaultDate: rounded,
-    minDate: rounded,
-    // juiste signatures
+    defaultDate: defaultPickup,
+    minDate: roundedNow,
     onReady(selectedDates, _dateStr, instance) {
-      const pick = instance?.selectedDates?.[0] || selectedDates?.[0] || rounded;
+      const pick = instance?.selectedDates?.[0] || defaultPickup;
       hardenReturnCalendar(pick);
     },
     onChange(selectedDates) {
-      hardenReturnCalendar(selectedDates?.[0] || rounded);
+      hardenReturnCalendar(selectedDates?.[0] || defaultPickup);
     },
     onValueUpdate(selectedDates) {
-      hardenReturnCalendar(selectedDates?.[0] || rounded);
+      hardenReturnCalendar(selectedDates?.[0] || defaultPickup);
     }
   });
 
-  hardenReturnCalendar(fpPickup?.selectedDates?.[0] || rounded);
+  // First pass
+  hardenReturnCalendar(fpPickup?.selectedDates?.[0] || defaultPickup);
+
+  // make available globally if you were using these
   window.fpPickup = fpPickup;
   window.fpReturn = fpReturn;
 })();
