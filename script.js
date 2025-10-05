@@ -524,9 +524,10 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
    Gate (naam/wachtwoord) – no-reload, robuust
    ========================= */
 (async function initGate() {
-  const input = document.getElementById("gateName");
-  const btn   = document.getElementById("gateBtn");
-  const err   = document.getElementById("gateErr");
+  const gate  = document.getElementById("gate");
+const input = gate?.querySelector("#gateName");
+const btn   = gate?.querySelector("#gateBtn");
+const err   = gate?.querySelector("#gateErr");
 
   // Als gate ontbreekt, niks doen
   if (!input || !btn) return;
