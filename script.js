@@ -16,7 +16,7 @@ if (window.pdfjsLib) {
 const DRIVE_ENDPOINT =
   "https://script.google.com/macros/s/AKfycbwOHc7ytcXLyi5D7HWrFha_hZbG5teEr9qFuprqLQ3h1OeePvkM0-LkYmbmgtafH1A/exec";
 const MAIL_ENDPOINT =
-  "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLjDBKd9uA_nV_cED5o0Sy8OEhl7th0bqhoij4uWE_yrwdZwkOa7ZH0cVcm4yRGiIxqqknMAjb_3vZEqsOxoxCpclWWcHBgDCczpKMJ5wjIL45C-Zu0XToFfUtvvU3P1GrFHurLUZveSnMYkLNpmtfiKKjmTNKJGMN7oA1GfCCKBvYxtAIRxBGAG8_WcaIchGpIpbxQ3rErd-1Wx-DZer8N3IkRW9qu9r3aPq3NMntO2rsgcCWPaauem6tMLs100MW_ukw5xV3am4-oesGLpqbVcklJBkNj9nOgEW4N5MGma6Q9VooYd3Xtx4d0pfw&lib=MeWuCCcpF7n6CEzeDUYALnNbD0KRScYky";
+  "https://script.google.com/macros/s/AKfycbyHJT1WGcgujp2iBX36FZZB8sAbgyi6YNzQw4Q7uDkbS0-wYCK5LV_w2qVTkIdQl00/exec";
 const RESOLVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbyOhqN0eWDYycX3sw55Fx2Syd9HCcNIOcolgJlvfPbFc3vMk_QkJESltHG-Cde33zoe/exec"; // <-- jouw resolve-webapp
 /* =========================
    Utils
@@ -444,39 +444,42 @@ form?.addEventListener("submit", async (e) => {
 
   // 2) Mail
   try {
-    const ab = doc.output("arraybuffer");
-    const b64 = base64FromArrayBuffer(ab);
+  const ab = doc.output("arraybuffer");
+  const b64 = base64FromArrayBuffer(ab);
 
-    const res = await fetch(MAIL_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({
-        subject: `TVL Overdracht – ${safeProject} (${id})`,
-        body: `
-          <p>Nieuwe overdracht PDF.</p>
-          <ul>
-            <li><b>Formulier ID</b>: ${id}</li>
-            <li><b>Project</b>: ${data.project || ""}</li>
-            <li><b>Huurder</b>: ${data.renterName || ""}</li>
-            <li><b>Ophaal</b>: ${data.pickup || ""}</li>
-            <li><b>Retour</b>: ${data.return || ""}</li>
-          </ul>
-          <p>Bijlage: ${filename}</p>
-        `,
-        filename,
-        mimeType: "application/pdf",
-        attachmentBase64: b64,
-        cc: isValidEmail(data.email) ? data.email : "",
-        replyTo: isValidEmail(data.email) ? data.email : ""
-      })
-    });
+  const res = await fetch(MAIL_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({
+      subject: `TVL Overdracht – ${safeProject} (${id})`,
+      body: `
+        <p>Nieuwe overdracht PDF.</p>
+        <ul>
+          <li><b>Formulier ID</b>: ${id}</li>
+          <li><b>Project</b>: ${data.project || ""}</li>
+          <li><b>Huurder</b>: ${data.renterName || ""}</li>
+          <li><b>Ophaal</b>: ${data.pickup || ""}</li>
+          <li><b>Retour</b>: ${data.return || ""}</li>
+        </ul>
+        <p>Bijlage: ${filename}</p>
+      `,
+      filename,
+      mimeType: "application/pdf",
+      attachmentBase64: b64,
+      cc: isValidEmail(data.email) ? data.email : "",
+      replyTo: isValidEmail(data.email) ? data.email : ""
+    })
+  });
 
-    if (!res.ok) throw new Error(`Mail endpoint HTTP ${res.status}`);
-    toast(`PDF gemaild naar info@tvlrental.nl${isValidEmail(data.email) ? " + cc naar huurder" : ""} ✅`);
-  } catch (err) {
-    console.error(err);
-    toast("Mailen mislukte (verbinding of endpoint) — PDF wel gedownload.", true);
-  }
+  const text = await res.text();      // <-- helpt debuggen
+  console.log("MAIL response:", res.status, text);
+
+  if (!res.ok) throw new Error(`Mail endpoint HTTP ${res.status}`);
+  toast(`PDF gemaild naar info@tvlrental.nl${isValidEmail(data.email) ? " + cc naar huurder" : ""} ✅`);
+} catch (err) {
+  console.error(err);
+  toast("Mailen mislukte (verbinding of endpoint) — PDF wel gedownload.", true);
+}
 });
 
 /* =========================
