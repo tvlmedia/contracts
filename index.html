@@ -1,6 +1,17 @@
 <!doctype html>
 <html lang="nl">
 <head>
+  <div id="gate" class="gate hidden">
+  <div class="gate-card">
+    <h2>Controle</h2>
+    <p>Vul je naam in om de overdracht te openen.</p>
+    <label>Naam
+      <input type="text" id="gateName" placeholder="Voor- en achternaam" autocomplete="name" />
+    </label>
+    <button type="button" id="gateBtn">Doorgaan</button>
+    <p id="gateErr" class="gate-err hidden">Naam klopt niet. Probeer opnieuw.</p>
+  </div>
+</div>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TVL Rental – Uitleenformulier & akkoord</title>
