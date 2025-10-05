@@ -26,6 +26,59 @@ window.addEventListener("load", () => {
   signaturePad = new SignaturePad(canvas, { backgroundColor: "rgba(255,255,255,1)" });
 });
 
+// -------- Date/Time pickers (Flatpickr) --------
+document.addEventListener("DOMContentLoaded", () => {
+  // rond “nu” af op 15 minuten
+  const now = new Date();
+  const rounded = new Date(now.getTime());
+  rounded.setMinutes(Math.ceil(rounded.getMinutes() / 15) * 15, 0, 0);
+
+  const fpCommon = { enableTime: true, dateFormat: "d-m-Y, H:i", time_24hr: true };
+
+  if (window.flatpickr) {
+    window.flatpickr("#pickupDateTime", { ...fpCommon, defaultDate: rounded });
+    window.flatpickr("#returnDateTime", { ...fpCommon });
+  }
+});
+
+// -------- Pickup/Return location dropdowns --------
+const ADDRESS_OFFICE = "Beek en Donk (Donkersvoorstestraat 3)";
+
+function syncLocation(mode) {
+  const modeSel = document.getElementById(mode + "Mode");
+  const deliveryWrap = document.getElementById(mode + "DeliveryWrap");
+  const deliveryInput = document.getElementById(mode + "DeliveryInput");
+  const hiddenField = document.getElementById(mode + "Location");
+
+  if (modeSel.value === "delivery") {
+    deliveryWrap.style.display = "";
+    hiddenField.value = deliveryInput.value.trim() || "Bezorging – adres nog invullen";
+  } else {
+    deliveryWrap.style.display = "none";
+    hiddenField.value = ADDRESS_OFFICE;
+  }
+}
+
+// wire events
+["pickup","return"].forEach(m=>{
+  const modeSel = document.getElementById(m+"Mode");
+  const deliveryInput = document.getElementById(m+"DeliveryInput");
+  if (modeSel) {
+    modeSel.addEventListener("change", ()=>syncLocation(m));
+  }
+  if (deliveryInput) {
+    ["input","blur"].forEach(ev=>deliveryInput.addEventListener(ev, ()=>syncLocation(m)));
+  }
+  // init with defaults
+  syncLocation(m);
+});
+
+// Voor de zekerheid: net vóór PDF maken nog één keer syncen
+form.addEventListener("submit", () => {
+  syncLocation("pickup");
+  syncLocation("return");
+});
+
 $("#btnClearSig").addEventListener("click", () => signaturePad.clear());
 
 // Add row to table
