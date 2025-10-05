@@ -1042,3 +1042,32 @@ function parseBooqableItems(rawText){
   }
   return [...map.values()];
 }
+// =========================
+//  Uitlog-knop
+// =========================
+const logoutBtn = document.getElementById("btnLogout");
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", () => {
+    // parameters wissen
+    const url = new URL(window.location.href);
+    url.searchParams.delete("sig");
+    url.searchParams.delete("name");
+    url.searchParams.delete("order");
+
+    // geschiedenis updaten zonder refresh
+    history.replaceState(null, "", url.toString());
+
+    // gate opnieuw tonen
+    document.body.classList.add("locked");
+
+    // invoerveld leegmaken + focus
+    const gate = document.getElementById("gate");
+    if (gate) {
+      const input = gate.querySelector("#gateName");
+      if (input) input.value = "";
+    }
+
+    // feedback
+    toast("Uitgelogd – voer opnieuw je naam in om verder te gaan.");
+  });
+}
