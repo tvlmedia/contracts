@@ -61,12 +61,54 @@ function toast(msg, isError=false){
 // ===== Date/Time pickers (Flatpickr) =====
 (function initDateTimePickers(){
   if (!window.flatpickr) return;
+
+  // rond "nu" af op 15 min
   const now = new Date();
-  const rounded = new Date(now.getTime());
-  rounded.setMinutes(Math.ceil(rounded.getMinutes() / 15) * 15, 0, 0);
+  const rounded = new Date(now);
+  rounded.setMinutes(Math.ceil(rounded.getMinutes()/15)*15, 0, 0);
+
   const common = { enableTime:true, dateFormat:"d-m-Y, H:i", time_24hr:true };
-  flatpickr("#pickupDateTime", { ...common, defaultDate: rounded });
-  flatpickr("#returnDateTime", { ...common });
+
+  // init
+  const fpPickup = flatpickr("#pickupDateTime", {
+    ...common,
+    defaultDate: rounded,
+    minDate: rounded,               // NOOIT verleden voor ophaal
+    onChange: syncReturnBounds,     // als pickup wijzigt -> return beperken
+    onReady:  syncReturnBounds
+  });
+
+  const fpReturn = flatpickr("#returnDateTime", {
+    ...common,
+    minDate: rounded                // fallback; wordt direct aangescherpt
+  });
+
+  function sameDay(a,b){
+    return a.getFullYear()===b.getFullYear() &&
+           a.getMonth()===b.getMonth() &&
+           a.getDate()===b.getDate();
+  }
+
+  function addMinutes(d, mins){
+    const x = new Date(d); x.setMinutes(x.getMinutes()+mins); return x;
+  }
+
+  // Zorg dat retour ≥ pickup (minimaal +15 min) & nooit verleden
+  function syncReturnBounds(){
+    const pick = fpPickup.selectedDates[0] || rounded;
+
+    // Min datum voor return = pickup datum/tijd
+    fpReturn.set("minDate", pick);
+
+    // Als retour op dezelfde dag ligt, zorg dat tijd >= pickup tijd
+    // (Flatpickr heeft geen conditionele minTime per dag, dus we corrigeren de waarde zelf)
+    const currentReturn = fpReturn.selectedDates[0];
+    const minReturn     = addMinutes(pick, 15); // buffer
+
+    if (!currentReturn || currentReturn < minReturn) {
+      fpReturn.setDate(minReturn, false); // pas waarde aan, geen onChange loop
+    }
+  }
 })();
 
 // ===== Locaties dropdowns =====
