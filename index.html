@@ -1,42 +1,42 @@
 <!doctype html>
 <html lang="nl">
-  <!-- Naam / wachtwoord gate -->
-<div id="gate" class="gate hidden" style="display:none">
-  <div class="gate-card">
-    <h2>Controle</h2>
-    <p>Vul je naam in om de overdracht te openen.</p>
-    <label>Naam
-      <input type="text" id="gateName" placeholder="Voor- en achternaam" autocomplete="name" />
-    </label>
-    <button type="button" id="gateBtn">Doorgaan</button>
-    <p id="gateErr" class="gate-err hidden">Naam klopt niet. Probeer opnieuw.</p>
-  </div>
-</div>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TVL Rental – Uitleenformulier & akkoord</title>
 
+  <!-- ===== Styles ===== -->
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
-  <!-- jsPDF & AutoTable -->
+  <!-- ===== JS-libs ===== -->
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
-  <!-- Signature Pad -->
   <script defer src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
-  <!-- PapaParse -->
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-  <!-- Flatpickr voor kalender/klok (één keer, zonder defer) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-  
-  <!-- JOUW  als laatste -->
+  <!-- ===== Jouw script als laatste ===== -->
   <script defer src="script.js"></script>
 </head>
+
 <body>
+  <!-- ==================== NAAM / WACHTWOORD-GATE ==================== -->
+  <div id="gate" class="gate hidden" style="display:none">
+    <div class="gate-card">
+      <h2>Controle</h2>
+      <p>Vul je naam in om de overdracht te openen.</p>
+      <label>Naam
+        <input type="text" id="gateName" placeholder="Voor- en achternaam" autocomplete="name" />
+      </label>
+      <button type="button" id="gateBtn">Doorgaan</button>
+      <p id="gateErr" class="gate-err hidden">Naam klopt niet. Probeer opnieuw.</p>
+    </div>
+  </div>
+
+  <!-- ==================== FORMULIER ==================== -->
   <div class="container">
     <header>
       <h1>TVL Rental – Overdrachtsformulier</h1>
@@ -44,6 +44,8 @@
     </header>
 
     <form id="rentalForm">
+
+      <!-- Huurder & project -->
       <section>
         <h2>Huurder & Project</h2>
         <div class="grid">
@@ -52,61 +54,65 @@
           <label>E-mail*<input type="email" name="email" required /></label>
           <label>Telefoon<input type="tel" name="phone" /></label>
           <label>Projectnaam*<input type="text" name="project" required /></label>
-          <label>PO/Referentie<input type="text" name="po" /></label>
+          <label>PO / Referentie<input type="text" name="po" /></label>
         </div>
       </section>
 
-      <!-- *** ENKEL DE NIEUWE PERIODE-SECTIE *** -->
-     <section>
-  <h2>Periode</h2>
-  <div class="grid">
-    <!-- Date/Time pickers -->
-    <label>Ophaal datum/tijd*
-      <input type="text" name="pickup" id="pickupDateTime" required />
-    </label>
-    <label>Retour datum/tijd*
-      <input type="text" name="return" id="returnDateTime" required />
-    </label>
+      <!-- Periode -->
+      <section>
+        <h2>Periode</h2>
+        <div class="grid">
+          <label>Ophaal datum / tijd*
+            <input type="text" name="pickup" id="pickupDateTime" required />
+          </label>
+          <label>Retour datum / tijd*
+            <input type="text" name="return" id="returnDateTime" required />
+          </label>
 
-    <!-- Locatie ophalen -->
-    <label>Locatie ophalen
-      <select id="pickupMode">
-        <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
-        <option value="delivery">Brengen (adres invullen)</option>
-      </select>
-    </label>
-    <div id="pickupDeliveryWrap" class="span-2 hidden">
-      <label>Adres voor brengen (ophalen)
-        <input type="text" id="pickupDeliveryInput" placeholder="Straat + nr, plaats" disabled />
-      </label>
-    </div>
-    <input type="hidden" name="pickupLocation" id="pickupLocation" value="Beek en Donk (Donkersvoorstestraat 3)" />
+          <!-- Ophalen -->
+          <label>Locatie ophalen
+            <select id="pickupMode">
+              <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
+              <option value="delivery">Brengen (adres invullen)</option>
+            </select>
+          </label>
+          <div id="pickupDeliveryWrap" class="span-2 hidden">
+            <label>Adres voor brengen (ophalen)
+              <input type="text" id="pickupDeliveryInput" placeholder="Straat + nr, plaats" disabled />
+            </label>
+          </div>
+          <input type="hidden" name="pickupLocation" id="pickupLocation"
+                 value="Beek en Donk (Donkersvoorstestraat 3)" />
 
-    <!-- Locatie retour -->
-    <label>Locatie retour
-      <select id="returnMode">
-        <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
-        <option value="delivery">Brengen (adres invullen)</option>
-      </select>
-    </label>
-    <div id="returnDeliveryWrap" class="span-2 hidden">
-      <label>Adres voor brengen (retour)
-        <input type="text" id="returnDeliveryInput" placeholder="Straat + nr, plaats" disabled />
-      </label>
-    </div>
-    <input type="hidden" name="returnLocation" id="returnLocation" value="Beek en Donk (Donkersvoorstestraat 3)" />
-  </div> <!-- sluit .grid -->
-</section> <!-- sluit Periode -->
+          <!-- Retour -->
+          <label>Locatie retour
+            <select id="returnMode">
+              <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
+              <option value="delivery">Brengen (adres invullen)</option>
+            </select>
+          </label>
+          <div id="returnDeliveryWrap" class="span-2 hidden">
+            <label>Adres voor brengen (retour)
+              <input type="text" id="returnDeliveryInput" placeholder="Straat + nr, plaats" disabled />
+            </label>
+          </div>
+          <input type="hidden" name="returnLocation" id="returnLocation"
+                 value="Beek en Donk (Donkersvoorstestraat 3)" />
+        </div>
+      </section>
 
+      <!-- Algemene voorwaarden -->
       <section>
         <h2>Algemene voorwaarden</h2>
-        <p>Lees de <a id="termsLink" href="AV.pdf" target="_blank" rel="noopener">Algemene Voorwaarden</a> zorgvuldig.</p>
+        <p>Lees de <a id="termsLink" href="AV.pdf" target="_blank" rel="noopener">
+          Algemene Voorwaarden</a> zorgvuldig.</p>
         <label class="checkbox">
           <input type="checkbox" id="acceptTerms" required />
           <span>Ik heb de algemene voorwaarden gelezen en ga akkoord*</span>
         </label>
       </section>
 
+      <!-- Gearlijst -->
       <section>
         <h2>Gear-lijst</h2>
         <details class="hint"><summary>CSV import (optioneel)</summary>
@@ -117,13 +123,16 @@
         <div class="items">
           <table id="itemsTable">
             <thead>
-              <tr><th>Item</th><th>Serial</th><th>Qty</th><th>Condition</th><th></th></tr>
+              <tr>
+                <th>Item</th><th>Serial</th><th>Qty</th><th>Condition</th><th></th>
+              </tr>
             </thead>
             <tbody></tbody>
           </table>
+
           <div class="row add">
             <input type="text" id="addItem" placeholder="Item" />
-            <input type="text" id="addSerial" placeholder="Serial/ID" />
+            <input type="text" id="addSerial" placeholder="Serial / ID" />
             <input type="number" id="addQty" placeholder="Qty" min="1" value="1" />
             <input type="text" id="addCondition" placeholder="Condition (bijv. 'netjes')" />
             <button type="button" id="btnAdd">Toevoegen</button>
@@ -131,9 +140,11 @@
         </div>
       </section>
 
+      <!-- Handtekening -->
       <section>
         <h2>Handtekening</h2>
-        <p>Ondergetekende bevestigt dat alle bovengenoemde items in goede orde zijn ontvangen en akkoord gaat met de algemene voorwaarden.</p>
+        <p>Ondergetekende bevestigt dat alle bovengenoemde items
+           in goede orde zijn ontvangen en akkoord gaat met de Algemene Voorwaarden.</p>
         <div class="sig-wrap">
           <canvas id="signaturePad" width="700" height="220"></canvas>
           <div class="sig-actions">
@@ -142,6 +153,7 @@
         </div>
       </section>
 
+      <!-- Submit -->
       <section class="actions">
         <button type="submit" id="btnGenerate">Genereer PDF</button>
       </section>
