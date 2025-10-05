@@ -60,6 +60,65 @@ function toast(msg, isError=false){
 
 // ===== Date/Time pickers (Flatpickr) =====
 
+// ===== Date/Time pickers (Flatpickr) =====
+let fpPickup, fpReturn;
+
+(function initDateTimePickers(){
+  if (!window.flatpickr) { console.warn("Flatpickr not loaded"); return; }
+
+  // rond “nu” af op 15 min
+  const now = new Date();
+  const rounded = new Date(now);
+  rounded.setMinutes(Math.ceil(rounded.getMinutes()/15)*15, 0, 0);
+
+  const common = {
+    enableTime: true,
+    dateFormat: "d-m-Y, H:i",
+    time_24hr: true,
+    allowInput: false,
+    disableMobile: true
+  };
+
+  // helpers
+  const addMinutes = (d, mins) => { const x = new Date(d); x.setMinutes(x.getMinutes()+mins,0,0); return x; };
+  const midnight   = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  function hardenReturnCalendar(pick){
+    // blokkeer alle dagen vóór de ophaaldag
+    const minDay = midnight(pick);
+    fpReturn.set("disable", [ (date) => date < minDay ]);
+    // minimale datum/tijd: ophaaltijd
+    fpReturn.set("minDate", pick);
+    // ensure minimaal +15 min t.o.v. pickup (pas 15 → 60 aan voor 1 uur)
+    const minReturn = addMinutes(pick, 15);
+    const current   = fpReturn.selectedDates[0];
+    if (!current || current < minReturn) {
+      fpReturn.setDate(minReturn, false);
+    }
+  }
+
+  fpPickup = flatpickr("#pickupDateTime", {
+    ...common,
+    defaultDate: rounded,
+    minDate: rounded,
+    onReady:       (sel) => hardenReturnCalendar(sel.selectedDates[0] || rounded),
+    onChange:      (sel) => hardenReturnCalendar(sel[0] || rounded),
+    onValueUpdate: (sel) => hardenReturnCalendar(sel[0] || rounded)
+  });
+
+  fpReturn = flatpickr("#returnDateTime", {
+    ...common,
+    minDate: rounded,
+    onOpen: () => {
+      const pick = fpPickup.selectedDates[0] || rounded;
+      hardenReturnCalendar(pick);
+    }
+  });
+
+  // optioneel: beschikbaar maken voor andere functies
+  window.fpPickup = fpPickup;
+  window.fpReturn = fpReturn;
+})();
 
 // ===== Locaties dropdowns =====
 const ADDRESS_OFFICE = "Beek en Donk (Donkersvoorstestraat 3)";
