@@ -424,9 +424,7 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   return y + lines.length * (fontSize + 2);
 }
 
-/* =========================
-   Gate (naam/wachtwoord) – no-reload
-   ========================= */
+/* ===== Gate (naam/wachtwoord) – no-reload ===== */
 (async function initGate(){
   const input = document.getElementById("gateName");
   const btn   = document.getElementById("gateBtn");
@@ -442,19 +440,19 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   const sig   = url.searchParams.get("sig");
   const qName = url.searchParams.get("name");
 
-  // als er al sig+name zijn, direct checken en unlocken
+  // reeds met sig+name binnen? -> direct proberen te unlocken
   if (sig && qName){
     const ok = (await sha256(qName)) === sig.toLowerCase();
     if (ok){
       document.body.classList.remove("locked");
-      document.querySelector('input[name="renterName"]')?.value ||=
-        qName.trim();
+      const nameField = document.querySelector('input[name="renterName"]');
+      if (nameField && !nameField.value) nameField.value = qName.trim();
       afterUnlock();
       return;
     }
   }
 
-  // anders: gate tonen en bij klik zonder reload unlocken
+  // anders: gate tonen en zonder reload verwerken
   document.body.classList.add("locked");
   if (qName) input.value = qName;
 
@@ -462,7 +460,6 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
     const name = (input.value || "").trim();
     if (!name){ input.focus(); return; }
 
-    // hash berekenen, URL bijwerken (zonder reload), en unlocken
     const hash = await sha256(name);
     const next = new URL(location.href);
     next.searchParams.set("sig",  hash);
@@ -478,7 +475,6 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   btn.addEventListener("click", go);
   input.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
 })();
-
 /* =========================
    PDF import uit Drive + parsing
    ========================= */
