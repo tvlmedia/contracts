@@ -392,50 +392,7 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   doc.text(lines, x, y);
   return y + lines.length * (fontSize + 2);
 }
-// ---------- Naam / wachtwoord gate ----------
-(async function initGate(){
-  const params = new URLSearchParams(location.search);
-  const sig = params.get("sig");     // expected SHA-256 hash van de naam
-  const prefill = params.get("name"); // optioneel: naam alvast tonen in input
-  if (!sig) return; // geen gate als er geen 'sig' in de URL staat
 
-  // toon overlay + blur
-  document.body.classList.add("locked");
-  const gate = document.getElementById("gate");
-  gate.classList.remove("hidden");
-
-  const input = document.getElementById("gateName");
-  const btn = document.getElementById("gateBtn");
-  const err = document.getElementById("gateErr");
-  if (prefill) input.value = prefill;
-
-  btn.addEventListener("click", onSubmit);
-  input.addEventListener("keydown", e => { if (e.key === "Enter") onSubmit(); });
-
-  async function onSubmit(){
-    const plain = (input.value || "").trim().toLowerCase();
-    if (!plain) { input.focus(); return; }
-    const hash = await sha256(plain);
-    if (hash === sig.toLowerCase()){
-      // unlock
-      gate.classList.add("hidden");
-      document.body.classList.remove("locked");
-      // vul naam in formulier (optioneel)
-      const nameField = document.querySelector('input[name="renterName"]');
-      if (nameField && !nameField.value) nameField.value = input.value.trim();
-    } else {
-      err.classList.remove("hidden");
-      setTimeout(()=> err.classList.add("hidden"), 2500);
-      input.select();
-    }
-  }
-
-  async function sha256(str){
-    const data = new TextEncoder().encode(str);
-    const buf = await crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
-  }
-})();
 // ---------- Naam / wachtwoord gate (landing eerst) ----------
 (async function initGate(){
   const gate   = document.getElementById("gate");
