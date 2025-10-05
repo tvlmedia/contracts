@@ -719,70 +719,128 @@ function norm(s){
     .trim();
 }
 
-/* ==== Autofill helpers ==== */
-function fillRenterFromText(txt){
+/* ==== Velden uit PDF kop (bedrijf/naam/e-mail/telefoon) ==== */
+function setIfEmpty(sel, val) {
+  if (!val) return;
+  const el = document.querySelector(sel);
+  if (el && !el.value) el.value = val.trim();
+}
+
+function fillRenterFromText(txt) {
   if (!txt) return;
 
-  // 1) Neem vooral de kop – daar staat klantinfo meestal
-  const head = txt.slice(0, 1500);
+  // We focussen op het bovenste stuk waar klantgegevens staan
+  const head = txt.slice(0, 2500);
 
-  // 2) E-mail
-  const emailRe = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
-  const emailMatch = emailRe.exec(head);
+  // ——— Email
+  const emailMatch = head.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
   const email = emailMatch ? emailMatch[0] : "";
 
-  // 3) Regels rondom de e-mail (±5 regels)
+  // ——— Telefoon (zelfde regel, volgende regel, of elders in de kop)
+  // herkent: 06 12 34 56 78 • 06-12345678 • +31 6 1234 5678 • +31612345678
+  const phoneBlock = head.slice(
+    Math.max(0, head.toLowerCase().indexOf("phone")),
+    Math.max(0, head.toLowerCase().indexOf("phone")) + 120
+  );
+  const telRe = /(?:(?:\+31|0)\s*6[\s-]?\d(?:[\s-]?\d){7,8})/;
+  let phone = "";
+
+  // 1) direct op/na "Phone"/"Telefoon"
+  const m1 = /(?:Phone|Telefoon)\s*[:\s]*([\s\S]{0,40})/i.exec(phoneBlock || "");
+  if (m1) {
+    const cand = (m1[1] || "").split(/\r?\n/)[0];
+    const mTel = telRe.exec(cand) || telRe.exec(head.slice(head.toLowerCase().indexOf("phone"), head.length));
+    if (mTel) phone = mTel[0];
+  }
+  // 2) elders in de kop
+  if (!phone) {
+    const mTelAny = telRe.exec(head);
+    if (mTelAny) phone = mTelAny[0];
+  }
+  phone = phone.replace(/\s{2,}/g, " ").trim();
+
+  // ——— Pak regels rondom de e-mail (meestal staat naam/bedrijf vlakbij)
   let around = head;
   if (emailMatch) {
     const i = emailMatch.index;
-    const start = Math.max(0, i - 400);
-    const end = Math.min(head.length, i + 400);
+    const start = Math.max(0, i - 500);
+    const end = Math.min(head.length, i + 500);
     around = head.slice(start, end);
   }
-  const lines = around.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const lines = around
+    .split(/\r?\n/)
+    .map(s => s.replace(/\u00A0/g, " ").trim())
+    .filter(Boolean);
 
+  // Zoek het mini-blokje boven de e-mail (typisch: Bedrijf, Naam, Adres… E-mail)
   let company = "";
   let name = "";
 
-  // 3a) Via labels
-  for (const L of lines){
-    if (/^(company|bedrijf|organisation|organization)\b[:\s]/i.test(L)) {
-      const v = L.replace(/^(company|bedrijf|organisation|organization)\b[:\s]*/i,"").trim();
-      if (v) { company = v; break; }
+  // Neem maximaal ~4 regels direct boven de e-mail als ‘blok’
+  let above = [];
+  if (emailMatch) {
+    const headBefore = head.slice(0, emailMatch.index).split(/\r?\n/).map(s => s.trim());
+    // loop terug tot lege regel of 4 regels
+    for (let i = headBefore.length - 1; i >= 0 && above.length < 6; i--) {
+      const L = headBefore[i];
+      if (!L) break;
+      above.unshift(L);
+      if (/^\s*$/.test(headBefore[i-1] || "")) break;
     }
+  } else {
+    // fallback: pak eerste 10 regels van het document
+    above = head.split(/\r?\n/).slice(0, 10).map(s => s.trim()).filter(Boolean);
   }
 
-  // 3b) Heuristiek voor bedrijfsnaam (ALL CAPS, korte string)
-  if (!company){
-    const cand = lines.find(s => /^[A-Z0-9&/'\-. ]{3,}$/.test(s) && s.split(" ").length <= 6);
-    if (cand) company = cand.replace(/\s{2,}/g," ").trim();
-  }
+  // verwijder duidelijke labels
+  const clean = (s) => s.replace(/^(company|bedrijf|organisation|organization|adres|address)\s*:?\s*/i, "");
 
-  // 3c) Naam (met Nederlandse tussenvoegsels)
-  const nameRe = /([A-Z][a-z]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/;
-  for (const L of lines) {
-    const m = nameRe.exec(L);
-    if (m && !/Company|Bedrijf|Invoice|Factuur|Project/i.test(L)) {
-      name = m[1].trim();
-      break;
+  const block = above.map(clean).filter(Boolean);
+
+  // heuristiek: vaak is regel 1 bedrijf en regel 2 naam
+  const capNameRe = /^([A-Z][a-z]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})$/;
+  // kies kandidaten die geen e-mail/prijs/labels zijn
+  const candidates = block.filter(s =>
+    !/@/.test(s) &&
+    !/€|EUR|BTW|Invoice|Factuur/i.test(s) &&
+    s.length <= 60
+  );
+
+  // probeer bedrijf/naam uit kandidaten te halen
+  // strategie:
+  // 1) als er 2 nette korte regels boven e-mail staan: [bedrijf, naam]
+  // 2) als slechts één regel naam-achtig is → naam; andere kortere uppercase-ish → bedrijf
+  if (candidates.length >= 2) {
+    const first = candidates[0], second = candidates[1];
+
+    const looksLikeName1 = capNameRe.test(first);
+    const looksLikeName2 = capNameRe.test(second);
+
+    if (!looksLikeName1 && looksLikeName2) {
+      company = first;
+      name = second;
+    } else if (looksLikeName1 && !looksLikeName2) {
+      name = first;
+      company = second;
+    } else if (!looksLikeName1 && !looksLikeName2) {
+      // beide lijken geen naam → neem eerste als bedrijf, tweede als naam fallback
+      company = first;
+      name = second;
+    } else {
+      // beide lijken naam → neem eerste als naam; bedrijf onbekend
+      name = first;
     }
+  } else if (candidates.length === 1) {
+    // één regel: besluit of het een naam of een bedrijf is
+    if (capNameRe.test(candidates[0])) name = candidates[0];
+    else company = candidates[0];
   }
 
-  // 3d) Fallback: regel net vóór de e-mail
-  if (!name && emailMatch){
-    const before = head.slice(0, emailMatch.index).split(/\r?\n/).pop() || "";
-    const m = nameRe.exec(before);
-    if (m) name = m[1].trim();
-  }
-
-  // 4) Velden invullen (alleen als leeg)
-  const emailEl   = document.querySelector('input[name="email"]');
-  const nameEl    = document.querySelector('input[name="renterName"]');
-  const companyEl = document.querySelector('input[name="company"]');
-
-  if (email   && emailEl   && !emailEl.value)   emailEl.value   = email;
-  if (name    && nameEl    && !nameEl.value)    nameEl.value    = name;
-  if (company && companyEl && !companyEl.value) companyEl.value = company;
+  // ——— Veldjes invullen (alleen als leeg)
+  setIfEmpty('input[name="email"]', email);
+  setIfEmpty('input[name="renterName"]', name);
+  setIfEmpty('input[name="company"]', company);
+  setIfEmpty('input[name="phone"]', phone);
 }
 function fillDatesFromText(txt){
   if (!txt) return;
