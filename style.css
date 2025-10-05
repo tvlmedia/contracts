@@ -1,132 +1,214 @@
-:root { --bg:#0b0d0f; --card:#15181c; --ink:#e9eef3; --muted:#a8b3c1; --acc:#2c7be5; }
-* { box-sizing:border-box; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; }
-html,body { margin:0; background:var(--bg); color:var(--ink); }
-a { color:var(--acc); }
-.container { max-width:980px; margin:40px auto; padding:0 16px; }
-header .subtitle { color:var(--muted); margin-top:-8px; }
-h1,h2 { margin:0 0 12px; }
-section { background:var(--card); border:1px solid #232a33; border-radius:12px; padding:16px; margin:18px 0; }
-.grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
-label { display:flex; flex-direction:column; gap:6px; font-size:14px; }
-input[type="text"],input[type="email"],input[type="tel"],input[type="datetime-local"],input[type="number"]{
-  background:#0e1116; border:1px solid #2a313b; color:var(--ink); padding:10px; border-radius:8px;
+/* ================================
+   TVL Rental – Base Theme
+   ================================ */
+:root{
+  --bg:#0b0d0f;
+  --card:#15181c;
+  --ink:#e9eef3;
+  --muted:#a8b3c1;
+  --acc:#2c7be5;
+  --ink-inv:#0b0d0f;
+  --border:#232a33;
+  --input-bg:#0e1116;
+  --input-border:#2a313b;
+  --thead:#10151b;
+  --focus-ring: 0 0 0 3px rgb(44 123 229 / .28);
 }
-.checkbox { display:flex; align-items:center; gap:10px; }
-.checkbox input { width:18px; height:18px; }
-.hint { background:#0f1318; border:1px dashed #2b3340; border-radius:10px; padding:10px; color:var(--muted); }
-.items { overflow:auto; }
-#itemsTable { width:100%; border-collapse:collapse; margin-top:10px; }
-#itemsTable th,#itemsTable td { border-bottom:1px solid #2a313b; padding:10px; text-align:left; }
-#itemsTable th { font-weight:700; background:#10151b; position:sticky; top:0; }
-.row.add { display:grid; grid-template-columns: 2fr 1fr 0.6fr 1.2fr auto; gap:8px; margin-top:10px; }
-button { background:var(--acc); color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
-button:hover { filter:brightness(1.05); }
-.sig-wrap { background:#0f1318; border:1px solid #2a313b; border-radius:10px; padding:10px; }
-#signaturePad { width:100%; background:#fff; border-radius:8px; display:block; }
-.sig-actions { margin-top:10px; display:flex; gap:8px; }
-.actions { display:flex; justify-content:flex-end; }
-footer { color:var(--muted); text-align:center; margin:24px 0 40px; }
-@media (max-width:720px) { .grid { grid-template-columns:1fr; } }
-/* Selects in dezelfde stijl als inputs */
-select{
-  background:#0e1116;
-  border:1px solid #2a313b;
+
+*{ box-sizing:border-box; }
+html,body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+a{ color:var(--acc); text-decoration:none; }
+a:hover{ text-decoration:underline; }
+
+/* ================================
+   Layout
+   ================================ */
+.container{ max-width:980px; margin:40px auto; padding:0 16px; }
+header .subtitle{ color:var(--muted); margin-top:-8px; }
+h1,h2{ margin:0 0 12px; }
+
+section{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px;
+  margin:18px 0;
+}
+
+/* ================================
+   Grid
+   ================================ */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:12px;
+}
+@media (max-width:720px){
+  .grid{ grid-template-columns:1fr; }
+}
+/* laat “adresregel” (span-2) hele rij innemen */
+.span-2{ grid-column:1 / -1; }
+
+/* ================================
+   Form Base
+   ================================ */
+label{ display:flex; flex-direction:column; gap:6px; font-size:14px; }
+
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+input[type="datetime-local"],
+select,
+textarea{
+  background:var(--input-bg);
+  border:1px solid var(--input-border);
   color:var(--ink);
   padding:10px 12px;
   border-radius:10px;
   outline:none;
-}
-select:focus{
-  border-color:var(--acc);
-  box-shadow:0 0 0 3px rgb(47 125 240 / .2);
+  width:100%;
 }
 
-/* Flatpickr dark tweak (optioneel, subtiel) */
-.flatpickr-calendar {
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+input::placeholder,
+textarea::placeholder{ color:#9aa7b6; }
+
+select{ appearance:none; background-image: none; }
+select:focus,
+input:focus,
+textarea:focus{ border-color:var(--acc); box-shadow:var(--focus-ring); }
+
+.checkbox{ display:flex; align-items:center; gap:10px; }
+.checkbox input{ width:18px; height:18px; }
+
+/* ================================
+   Buttons
+   ================================ */
+button{
+  border:none; border-radius:10px; cursor:pointer;
+  padding:10px 14px; font-weight:600;
+  transition: transform .06s ease, filter .12s ease;
 }
-select{
-  background:#0e1116; border:1px solid #2a313b; color:#e9eef3;
-  padding:10px 12px; border-radius:10px; outline:none;
+button:hover{ filter:brightness(1.05); }
+button:active{ transform: translateY(1px); }
+
+button.primary{ background:var(--acc); color:#fff; }
+button.secondary{
+  background:var(--input-bg);
+  color:var(--ink);
+  border:1px solid var(--input-border);
 }
-select:focus{ border-color:#2f7df0; box-shadow:0 0 0 3px rgb(47 125 240 / .2); }
+button.secondary:hover{ border-color:#3a4350; filter:none; }
 
-/* (optioneel) flatpickr typografie matchen */
-.flatpickr-calendar{ font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-:root { --bg:#0b0d0f; --card:#15181c; --ink:#e9eef3; --muted:#a8b3c1; --acc:#2c7be5; }
-* { box-sizing:border-box; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
-html,body { margin:0; background:var(--bg); color:var(--ink); }
-a { color:var(--acc); }
-.container { max-width:980px; margin:40px auto; padding:0 16px; }
-header .subtitle { color:var(--muted); margin-top:-8px; }
-h1,h2 { margin:0 0 12px; }
-section { background:var(--card); border:1px solid #232a33; border-radius:12px; padding:16px; margin:18px 0; }
-.grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
-label { display:flex; flex-direction:column; gap:6px; font-size:14px; }
+.actions{ display:flex; justify-content:flex-end; gap:8px; }
 
-input[type="text"],input[type="email"],input[type="tel"],input[type="number"]{
-  background:#0e1116; border:1px solid #2a313b; color:var(--ink); padding:10px; border-radius:8px;
+/* ================================
+   Items table
+   ================================ */
+.items{ overflow:auto; }
+#itemsTable{ width:100%; border-collapse:collapse; margin-top:10px; }
+#itemsTable th, #itemsTable td{
+  border-bottom:1px solid var(--input-border);
+  padding:10px; text-align:left;
 }
-.checkbox { display:flex; align-items:center; gap:10px; }
-.checkbox input { width:18px; height:18px; }
-.hint { background:#0f1318; border:1px dashed #2b3340; border-radius:10px; padding:10px; color:var(--muted); }
-.items { overflow:auto; }
-#itemsTable { width:100%; border-collapse:collapse; margin-top:10px; }
-#itemsTable th,#itemsTable td { border-bottom:1px solid #2a313b; padding:10px; text-align:left; }
-#itemsTable th { font-weight:700; background:#10151b; position:sticky; top:0; }
-.row.add { display:grid; grid-template-columns: 2fr 1fr 0.6fr 1.2fr auto; gap:8px; margin-top:10px; }
-button { background:var(--acc); color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
-button:hover { filter:brightness(1.05); }
-.sig-wrap { background:#0f1318; border:1px solid #2a313b; border-radius:10px; padding:10px; }
-#signaturePad { width:100%; background:#fff; border-radius:8px; display:block; }
-.sig-actions { margin-top:10px; display:flex; gap:8px; }
-.actions { display:flex; justify-content:flex-end; }
-footer { color:var(--muted); text-align:center; margin:24px 0 40px; }
-@media (max-width:720px) { .grid { grid-template-columns:1fr; } }
-
-/* Selects in dezelfde stijl als inputs */
-select{
-  background:#0e1116; border:1px solid #2a313b; color:#e9eef3;
-  padding:10px 12px; border-radius:10px; outline:none;
+#itemsTable thead th{
+  font-weight:700; background:var(--thead); position:sticky; top:0; z-index:1;
 }
-select:focus{ border-color:#2f7df0; box-shadow:0 0 0 3px rgb(47 125 240 / .2); }
+.row.add{
+  display:grid;
+  grid-template-columns: 2fr 1fr .7fr 1.2fr auto;
+  gap:8px; margin-top:10px; align-items:start;
+}
+.row.add > button{ white-space:nowrap; }
 
-/* Flatpickr font match */
-.flatpickr-calendar{ font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-/* laat de adresregel hele rij innemen */
-.span-2 { grid-column: 1 / -1; }
-.hidden { display: none; }
-.span-2 { grid-column: 1 / -1; }
-/* --- Gate / Lock: single source of truth --- */
-html, body { height: 100%; }
+/* ================================
+   Signature
+   ================================ */
+.sig-wrap{
+  background:#0f1318;
+  border:1px solid var(--input-border);
+  border-radius:10px;
+  padding:10px;
+}
+#signaturePad{
+  width:100%;
+  background:#fff;
+  border-radius:8px;
+  display:block;
+}
+.sig-actions{ margin-top:10px; display:flex; gap:8px; }
 
-#gate { display: none; }
-body.locked #gate { display: grid; }     /* toon gate als locked */
+/* ================================
+   Gate / Lock
+   ================================ */
+html, body{ height:100%; }
+
+#gate{ display:none; }                /* standaard uit */
+body.locked #gate{ display:grid; }    /* tonen wanneer locked */
 
 .gate{
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;       /* centreren */
-  padding: 24px;
+  position:fixed;
+  inset:0;
+  display:grid;
+  place-items:center;        /* perfecte centrering */
+  padding:24px;
   background: rgba(0,0,0,.55);
   backdrop-filter: blur(2px);
-  z-index: 10000;            /* iets hoger om altijd boven alles te zitten */
-}
-.gate-card{
-  width: min(92vw, 520px);
-  background: #111827;
-  color: #e5e7eb;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.45);
-  padding: 22px 24px;
+  z-index: 120000;           /* boven elke overlay/toast */
 }
 
+.gate-card{
+  width:min(92vw, 520px);
+  background:#111827;
+  color:#e5e7eb;
+  border-radius:16px;
+  box-shadow:0 20px 60px rgba(0,0,0,.45);
+  padding:22px 24px;
+  border:1px solid #1f2630;
+}
+.gate-card h2{ margin:0 0 6px; }
+.gate-card p{ margin:0 0 12px; color:var(--muted); }
+.gate-card label{ margin:8px 0 12px; }
+.gate-err{ color:#ff6b6b; margin-top:8px; }
 .hidden{ display:none !important; }
 
-/* Pagina uitschakelen zolang de gate open is */
+/* Pagina uitschakelen zolang gate open is */
 body.locked .container{
   filter: blur(2px);
-  pointer-events: none;
-  user-select: none;
+  pointer-events:none;
+  user-select:none;
+}
+
+/* ================================
+   Flatpickr (typografie match)
+   ================================ */
+.flatpickr-calendar{
+  font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+/* ================================
+   Footer
+   ================================ */
+footer{ color:var(--muted); text-align:center; margin:24px 0 40px; }
+
+/* ================================
+   Accessibility niceties
+   ================================ */
+:focus-visible{ outline:none; box-shadow:var(--focus-ring); }
+@media (prefers-reduced-motion: reduce){
+  *{ animation: none !important; transition: none !important; }
+}
+
+/* ================================
+   Print (nettere PDF preview)
+   ================================ */
+@media print{
+  body{ background:#fff; color:#000; }
+  .gate, .actions, .hint{ display:none !important; }
+  section{ border-color:#ddd; }
 }
