@@ -424,11 +424,13 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   return y + lines.length * (fontSize + 2);
 }
 
-/* ===== Gate (naam/wachtwoord) – no-reload ===== */
+/* ===== Gate (naam/wachtwoord) – no-reload, robuust ===== */
 (async function initGate(){
   const input = document.getElementById("gateName");
   const btn   = document.getElementById("gateBtn");
   const err   = document.getElementById("gateErr");
+
+  if (!input || !btn) return;
 
   async function sha256(str){
     const data = new TextEncoder().encode(str.trim().toLowerCase());
@@ -440,40 +442,47 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   const sig   = url.searchParams.get("sig");
   const qName = url.searchParams.get("name");
 
-  // reeds met sig+name binnen? -> direct proberen te unlocken
-  if (sig && qName){
-    const ok = (await sha256(qName)) === sig.toLowerCase();
-    if (ok){
-      document.body.classList.remove("locked");
-      const nameField = document.querySelector('input[name="renterName"]');
-      if (nameField && !nameField.value) nameField.value = qName.trim();
-      afterUnlock();
-      return;
-    }
-  }
-
-  // anders: gate tonen en zonder reload verwerken
-  document.body.classList.add("locked");
-  if (qName) input.value = qName;
-
-  async function go(){
-    const name = (input.value || "").trim();
-    if (!name){ input.focus(); return; }
-
+  async function unlockWith(name){
+    // schrijf sig+name naar de URL (zonder reload)
     const hash = await sha256(name);
     const next = new URL(location.href);
     next.searchParams.set("sig",  hash);
     next.searchParams.set("name", name);
     history.replaceState(null, "", next.toString());
 
+    // unlock UI
     document.body.classList.remove("locked");
     const nameField = document.querySelector('input[name="renterName"]');
-    if (nameField && !nameField.value) nameField.value = name;
-    afterUnlock();
+    if (nameField && !nameField.value) nameField.value = name.trim();
+
+    // start PDF-import (als ?order=... aanwezig is)
+    try { await afterUnlock(); } catch(e){ console.error(e); }
   }
 
-  btn.addEventListener("click", go);
-  input.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+  // 1) Directe unlock als sig+name al in URL staan en kloppen
+  if (sig && qName && (await sha256(qName)) === sig.toLowerCase()){
+    return unlockWith(qName);
+  }
+
+  // 2) Gate tonen (locked) en interactie aansluiten
+  document.body.classList.add("locked");
+  if (qName) input.value = qName;
+
+  async function handleGo(){
+    const name = (input.value || "").trim();
+    if (!name){
+      input.focus();
+      err?.classList.remove("hidden");
+      setTimeout(()=>err?.classList.add("hidden"), 1500);
+      return;
+    }
+    await unlockWith(name);
+  }
+
+  btn.addEventListener("click", handleGo);
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); handleGo(); }
+  });
 })();
 /* =========================
    PDF import uit Drive + parsing
