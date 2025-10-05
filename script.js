@@ -138,11 +138,12 @@ function syncLocation(mode){
   if (sel) sel.addEventListener("change", ()=>syncLocation(m));
   if (inp) inp.addEventListener("input", ()=>syncLocation(m));
   syncLocation(m); // initial state
+}); // <-- forEach correct afgesloten
 
-   
-
-form.addEventListener("submit", () => { syncLocation("pickup"); syncLocation("return"); });
-
+form.addEventListener("submit", () => {
+  syncLocation("pickup");
+  syncLocation("return");
+});
 // ===== Items tabel =====
 function addRow({Item="", Serial="", Qty=1, Condition=""}) {
   const tr = document.createElement("tr");
