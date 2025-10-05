@@ -45,3 +45,11 @@ select:focus{
 .flatpickr-calendar {
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
+select{
+  background:#0e1116; border:1px solid #2a313b; color:#e9eef3;
+  padding:10px 12px; border-radius:10px; outline:none;
+}
+select:focus{ border-color:#2f7df0; box-shadow:0 0 0 3px rgb(47 125 240 / .2); }
+
+/* (optioneel) flatpickr typografie matchen */
+.flatpickr-calendar{ font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
