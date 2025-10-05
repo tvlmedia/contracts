@@ -304,43 +304,38 @@ let fpPickup, fpReturn;
     }
   }
 
-  // Create pickers with defaults:
-  // - pickup: now (rounded to 15m)
-  // - return: next day @ 17:00 (or pickup+15m if that’s later)
+ // 5b) flatpickr: zet default pickup = nu (15m afgerond) en return = volgende dag 17:00 (min. +15m)
+try {
+  const now = new Date();
+  const roundedNow = new Date(now);
+  roundedNow.setMinutes(Math.ceil(roundedNow.getMinutes() / 15) * 15, 0, 0);
+
+  const addMinutes = (d, mins) => {
+    const x = new Date(d);
+    x.setMinutes(x.getMinutes() + mins, 0, 0);
+    return x;
+  };
+  const nextDay17 = (d) => {
+    const x = new Date(d);
+    x.setDate(x.getDate() + 1);
+    x.setHours(17, 0, 0, 0);
+    return x;
+  };
+
   const defaultPickup = roundedNow;
   const defaultReturn = new Date(
     Math.max(nextDay17(defaultPickup).getTime(), addMinutes(defaultPickup, 15).getTime())
   );
 
-  fpReturn = flatpickr("#returnDateTime", {
-    ...common,
-    minDate: defaultPickup,
-    defaultDate: defaultReturn
-  });
+  if (window.fpPickup?.setDate) window.fpPickup.setDate(defaultPickup, false);
+  if (window.fpReturn?.setDate) window.fpReturn.setDate(defaultReturn, false);
 
-  fpPickup = flatpickr("#pickupDateTime", {
-    ...common,
-    defaultDate: defaultPickup,
-    minDate: roundedNow,
-    onReady(selectedDates, _dateStr, instance) {
-      const pick = instance?.selectedDates?.[0] || defaultPickup;
-      hardenReturnCalendar(pick);
-    },
-    onChange(selectedDates) {
-      hardenReturnCalendar(selectedDates?.[0] || defaultPickup);
-    },
-    onValueUpdate(selectedDates) {
-      hardenReturnCalendar(selectedDates?.[0] || defaultPickup);
-    }
-  });
-
-  // First pass
-  hardenReturnCalendar(fpPickup?.selectedDates?.[0] || defaultPickup);
-
-  // make available globally if you were using these
-  window.fpPickup = fpPickup;
-  window.fpReturn = fpReturn;
-})();
+  // als flatpickr nog niet bestond: inputs alvast vullen (flatpickr pakt dit bij init op)
+  const fmt = (d) => d.toLocaleString("nl-NL", { hour12: false })
+                     .replace(/\s/, ", "); // “dd-mm-jjjj, HH:MM”
+  if (!window.fpPickup) document.getElementById("pickupDateTime").value = fmt(defaultPickup);
+  if (!window.fpReturn) document.getElementById("returnDateTime").value = fmt(defaultReturn);
+} catch {}
 
 /* =========================
    Locaties dropdowns
@@ -1112,33 +1107,5 @@ function parseBooqableItems(rawText){
   }
   return [...map.values()];
 }
-// =========================
-//  Uitlog-knop
-// =========================
-const logoutBtn = document.getElementById("btnLogout");
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", () => {
-    // parameters wissen
-    const url = new URL(window.location.href);
-    url.searchParams.delete("sig");
-    url.searchParams.delete("name");
-    url.searchParams.delete("order");
 
-    // geschiedenis updaten zonder refresh
-    history.replaceState(null, "", url.toString());
-
-    // gate opnieuw tonen
-    document.body.classList.add("locked");
-
-    // invoerveld leegmaken + focus
-    const gate = document.getElementById("gate");
-    if (gate) {
-      const input = gate.querySelector("#gateName");
-      if (input) input.value = "";
-    }
-
-    // feedback
-    toast("Uitgelogd – voer opnieuw je naam in om verder te gaan.");
-  });
-}
 document.getElementById("btnLogout")?.addEventListener("click", logout);
