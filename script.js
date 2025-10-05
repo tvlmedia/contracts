@@ -825,142 +825,126 @@ function setIfEmpty(sel, val) {
   if (el && !el.value) el.value = val.trim();
 }
 
-// --- vervangt je bestaande fillRenterFromText ---
 function fillRenterFromText(txt) {
-  if (!txt) return;
+  try {
+    if (!txt) return;
 
-  // Werkgebied
-  const head = txt.slice(0, 12000);
+    const head = txt.slice(0, 12000);
 
-  // Eigen blok negeren
-  const OUR_BRAND   = /(TVL\s*Rental|TVL\s*Media)/i;
-  const OUR_EMAILS  = /@tvlmedia\.nl|@tvlrental\.nl/i;
-  const OUR_ADDRESS = /(Donkersvoorstestraat|Beek\s*en\s*Donk|5741\s*RL)/i;
-  const notOurs = s => !(OUR_BRAND.test(s) || OUR_ADDRESS.test(s) || OUR_EMAILS.test(s));
+    // --- eigen blok negeren
+    const OUR_BRAND   = /(TVL\s*Rental|TVL\s*Media)/i;
+    const OUR_EMAILS  = /@tvlmedia\.nl|@tvlrental\.nl/i;
+    const OUR_ADDRESS = /(Donkersvoorstestraat|Beek\s*en\s*Donk|5741\s*RL)/i;
+    const notOurs = (s) => !(OUR_BRAND.test(s) || OUR_ADDRESS.test(s) || OUR_EMAILS.test(s));
 
-  // Anchors/heuristieken
-  const EMAIL      = EMAIL_RE;                                  // bestaat al bovenin je script
-  const EMAIL_G    = new RegExp(EMAIL_RE.source, "gi");         // <-- nodig voor .matchAll
-  const ANY_NL_MOB = /(?:(?:\+31|0031|0)\s*6(?:[\s-]?\d){8})/;
-  const ANY_NL_TEL = /(?:(?:\+31|0031|0)\s*(?:\d[\s-]?){8,10}\d)/;
+    // --- anchors
+    const EMAIL_ONE   = EMAIL_RE;  // staat al in je script
+    const EMAIL_G     = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi; // zelfstandige globale email-regex
+    const ANY_NL_MOB  = /(?:(?:\+31|0031|0)\s*6(?:[\s-]?\d){8})/;
+    const ANY_NL_TEL  = /(?:(?:\+31|0031|0)\s*(?:\d[\s-]?){8,10}\d)/;
 
-  const COUNTRY_RE   = /\b(netherlands|nederland|belgium|belgië|germany|deutschland|france|united\s*kingdom|uk|the\s*netherlands|europe)\b/i;
-  const POSTCODE_NL  = /\b\d{4}\s?[A-Z]{2}\b/;
-  const STREET_WORDS = /\b(straat|laan|weg|plein|gracht|dreef|kade|boulevard|avenue|road|lane|drive|rd\.?|ln\.?|dr\.?)\b/i;
+    const COUNTRY_RE   = /\b(netherlands|nederland|belgium|belgië|germany|deutschland|france|united\s*kingdom|uk|the\s*netherlands|europe)\b/i;
+    const POSTCODE_NL  = /\b\d{4}\s?[A-Z]{2}\b/;
+    const STREET_WORDS = /\b(straat|laan|weg|plein|gracht|dreef|kade|boulevard|avenue|road|lane|drive|rd\.?|ln\.?|dr\.?)\b/i;
 
-  const isEmail    = s => EMAIL.test(s);
-  const isPhone    = s => ANY_NL_TEL.test(s) || ANY_NL_MOB.test(s);
-  const isCountry  = s => COUNTRY_RE.test(s);
-  const isAddress  = s => POSTCODE_NL.test(s) || STREET_WORDS.test(s) || /\b\d{1,4}\b/.test(s);
+    const isEmail    = (s) => EMAIL_ONE.test(s);
+    const isPhone    = (s) => ANY_NL_TEL.test(s) || ANY_NL_MOB.test(s);
+    const isCountry  = (s) => COUNTRY_RE.test(s);
+    const isAddress  = (s) => POSTCODE_NL.test(s) || STREET_WORDS.test(s) || /\b\d{1,4}\b/.test(s);
 
-  const CAP_NAME_RE   = /^([A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+){0,2})$/;
-  const CO_TAIL_HINTS = /\b(BV|B\.V\.|N\.?V\.?|VOF|Holding|Group|Studio|Media|Fotografie|Foto|Video|Productions?|Creative|Events?)\b/i;
+    const CAP_NAME_RE   = /^([A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+){0,2})$/;
+    const CO_TAIL_HINTS = /\b(BV|B\.V\.|N\.?V\.?|VOF|Holding|Group|Studio|Media|Fotografie|Foto|Video|Productions?|Creative|Events?)\b/i;
 
-  const looksName = s =>
-    CAP_NAME_RE.test(s) && !isAddress(s) && !isEmail(s) && !isPhone(s) && !isCountry(s);
+    const looksName = (s) =>
+      CAP_NAME_RE.test(s) && !isAddress(s) && !isEmail(s) && !isPhone(s) && !isCountry(s);
 
-  const looksCo = s =>
-    (CO_TAIL_HINTS.test(s) || /[A-Z].*[A-Z]/.test(s)) &&
-    !isAddress(s) && !isEmail(s) && !isPhone(s) && !isCountry(s);
+    const looksCo = (s) =>
+      (CO_TAIL_HINTS.test(s) || /[A-Z].*[A-Z]/.test(s)) &&
+      !isAddress(s) && !isEmail(s) && !isPhone(s) && !isCountry(s);
 
-  // Bedrijfsnaam evt. met korte vervolgregel “plakken”
-  function glueCompany(a, b) {
-    if (!a || !b) return a || "";
-    const shortB = b.split(/\s+/).length <= 4;
-    const capsB  = /^[A-ZÀ-ÖØ-Ý]/.test(b);
-    if (/[&-]$/.test(a) || (shortB && capsB) || CO_TAIL_HINTS.test(b)) {
-      return `${a} ${b}`.replace(/\s{2,}/g, " ").trim();
-    }
-    return a;
-  }
-
-  // Kies klant-e-mail (vermijd eigen domeinen/branding)
-  function pickClientEmail(text) {
-    const matches = [...text.matchAll(EMAIL_G)]; // <-- GLOBAAL regex
-    let best = null;
-    for (const m of matches) {
-      const email = m[0];
-      const i = m.index || 0;
-      const ctx = text.slice(Math.max(0, i - 600), i + 600);
-      if (OUR_EMAILS.test(email)) continue;
-      if (OUR_BRAND.test(ctx) || OUR_ADDRESS.test(ctx)) continue;
-      let score = 1;
-      if (/(bill\s*to|customer|client|klant|huur|contact)/i.test(ctx)) score += 2;
-      if (/phone|telefoon|tel\.?/i.test(ctx)) score += 1;
-      score += Math.min(2, i / 4000); // iets lager in doc => iets hogere score
-      if (!best || score > best.score) best = { email, index: i, score };
-    }
-    return best;
-  }
-
-  const picked = pickClientEmail(head);
-  const email  = picked?.email || "";
-
-  // Telefoon: eerst rond de gekozen e-mail; anders globaal
-  let phone = "";
-  if (picked) {
-    const near = head.slice(Math.max(0, picked.index - 700), picked.index + 1000);
-    phone = (near.match(ANY_NL_MOB)?.[0] || near.match(ANY_NL_TEL)?.[0] || "") || "";
-  }
-  if (!phone) {
-    const m = head.match(ANY_NL_MOB) || head.match(ANY_NL_TEL);
-    phone = m ? m[0] : "";
-  }
-  phone = normalizePhoneNL(phone);
-
-  // Bedrijf + naam: regels vlak boven de gekozen e-mail
-  let company = "";
-  let name    = "";
-
-  if (picked) {
-    const i = picked.index;
-    const before = head.slice(0, i)
-      .split(/\r?\n/)
-      .map(s => s.replace(/\u00A0/g, " ").trim())
+    const lines = head.split(/\r?\n/)
+      .map((s) => s.replace(/\u00A0/g, " ").replace(/\s{2,}/g, " ").trim())
       .filter(Boolean);
 
-    // max 8 regels boven e-mail, stop bij lege regel of eigen blok
-    const block = [];
-    for (let k = before.length - 1; k >= 0 && block.length < 8; k--) {
-      const L = before[k];
-      if (!L || OUR_BRAND.test(L) || OUR_ADDRESS.test(L)) break;
-      block.unshift(L);
-      if (/^\s*$/.test(before[k - 1] || "")) break;
+    // — kies klant-email (eerste niet-TVL email onder “Klant/Customer/Bill to” indien mogelijk)
+    let email = "";
+    let emailLineIdx = -1;
+
+    // probeer gericht onder een header
+    let hdrIdx = lines.findIndex(l => /(bill\s*to|customer|client|klant)/i.test(l) && notOurs(l));
+    if (hdrIdx >= 0) {
+      for (let i = hdrIdx + 1; i < Math.min(lines.length, hdrIdx + 15); i++) {
+        EMAIL_G.lastIndex = 0;
+        const m = EMAIL_G.exec(lines[i]);
+        if (m && notOurs(m[0])) { email = m[0]; emailLineIdx = i; break; }
+      }
+    }
+    // fallback: eerste niet-TVL e-mail in document
+    if (!email) {
+      outer: for (let i = 0; i < lines.length; i++) {
+        EMAIL_G.lastIndex = 0;
+        let m;
+        while ((m = EMAIL_G.exec(lines[i])) !== null) {
+          if (notOurs(m[0])) { email = m[0]; emailLineIdx = i; break outer; }
+        }
+      }
     }
 
-    // ruis weg
-    const cleaned = block.filter(l =>
-      !isEmail(l) &&
-      !isPhone(l) &&
-      !isAddress(l) &&
-      !isCountry(l) &&
-      !/€|EUR|BTW|Invoice|Factuur|Datum|Pickup|Return/i.test(l)
-    );
+    // — telefoon: in buurt van email-line; anders globaal
+    let phone = "";
+    const windowForPhone = lines.slice(Math.max(0, emailLineIdx - 6), Math.min(lines.length, emailLineIdx + 10)).join("\n");
+    phone = (windowForPhone.match(ANY_NL_MOB)?.[0] || windowForPhone.match(ANY_NL_TEL)?.[0] || "");
+    if (!phone) phone = (head.match(ANY_NL_MOB)?.[0] || head.match(ANY_NL_TEL)?.[0] || "");
+    phone = normalizePhoneNL(phone);
 
-    if (cleaned.length) {
+    // — blok boven de email-line
+    let company = "";
+    let name    = "";
+    if (emailLineIdx >= 0) {
+      const block = [];
+      for (let k = emailLineIdx - 1; k >= 0 && block.length < 8; k--) {
+        const L = lines[k];
+        if (!L || OUR_BRAND.test(L) || OUR_ADDRESS.test(L)) break;
+        block.unshift(L);
+        if (/^\s*$/.test(lines[k - 1] || "")) break;
+      }
+
+      const cleaned = block.filter(l =>
+        notOurs(l) &&
+        !isEmail(l) && !isPhone(l) && !isAddress(l) && !isCountry(l) &&
+        !/€|EUR|BTW|Invoice|Factuur|Datum|Pickup|Return/i.test(l)
+      );
+
+      // “plak” bedrijfsnaam + korte vervolgregel
       const a = cleaned[0] || "";
       const b = cleaned[1] || "";
-      const glued = glueCompany(a, b);
+      const glued =
+        (a && b && (/[&-]$/.test(a) || CO_TAIL_HINTS.test(b) || (b.split(/\s+/).length <= 4 && /^[A-ZÀ-ÖØ-Ý]/.test(b))))
+          ? `${a} ${b}`.replace(/\s{2,}/g, " ").trim()
+          : a;
 
       if (looksCo(glued)) {
         company = glued;
-        const nameCandidate = cleaned[(glued !== a) ? 2 : 1] || "";
-        if (looksName(nameCandidate)) name = nameCandidate;
+        const nextIdx = (glued !== a) ? 2 : 1;
+        const nm = cleaned[nextIdx] || "";
+        if (looksName(nm)) name = nm;
       } else {
         if (looksCo(a)) company = a;
         if (looksName(b)) name = b;
         if (!company && looksName(a) && looksCo(b)) { name = a; company = b; }
-        if (!name)   name   = cleaned.find(looksName) || name;
-        if (!company) company = cleaned.find(looksCo) || company;
+        if (!name)    name    = cleaned.find(looksName) || name;
+        if (!company) company = cleaned.find(looksCo)  || company;
       }
     }
-  }
 
-  // Invullen (alleen overschrijven als huidige inhoud duidelijk fout is)
-  setSmart('input[name="email"]',      email,   v => EMAIL.test(v));
-  setSmart('input[name="phone"]',      phone,   v => NL_PHONE_RE.test(v.replace(/\s+/g,"").replace(/-/g,"")));
-  setSmart('input[name="renterName"]', name,    v => !EMAIL.test(v) && !NL_PHONE_RE.test(v));
-  setSmart('input[name="company"]',    company, v => !EMAIL.test(v) && !NL_PHONE_RE.test(v) && !COUNTRY_RE.test(v));
+    // — invullen (alleen leeg of duidelijk fout overschrijven)
+    setSmart('input[name="email"]',      email,   v => EMAIL_ONE.test(v));
+    setSmart('input[name="phone"]',      phone,   v => NL_PHONE_RE.test(v.replace(/\s+/g,"").replace(/-/g,"")));
+    setSmart('input[name="renterName"]', name,    v => !EMAIL_ONE.test(v) && !NL_PHONE_RE.test(v));
+    setSmart('input[name="company"]',    company, v => !EMAIL_ONE.test(v) && !NL_PHONE_RE.test(v) && !COUNTRY_RE.test(v));
+  } catch (err) {
+    console.error("fillRenterFromText error:", err);
+  }
 }
 function fillDatesFromText(txt){
   if (!txt) return;
