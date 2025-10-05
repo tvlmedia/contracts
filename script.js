@@ -139,23 +139,7 @@ function syncLocation(mode){
   if (inp) inp.addEventListener("input", ()=>syncLocation(m));
   syncLocation(m); // initial state
 
-    // --- harde validatie op datums ---
-  const pickDT = (fpPickup && fpPickup.selectedDates[0]) ? fpPickup.selectedDates[0] : null;
-  const retDT  = (fpReturn && fpReturn.selectedDates[0]) ? fpReturn.selectedDates[0] : null;
-
-  if (!pickDT || !retDT) {
-    alert("Vul eerst de ophaal- en retourdatum in.");
-    return;
-  }
-  const minReturn = new Date(pickDT.getTime() + 15*60*1000);
-
-  if (retDT < minReturn) {
-    // corrigeer en blokkeer submit
-    fpReturn.setDate(minReturn, true);
-    alert("Retour kan niet vóór ophaal (min. +15 min). Ik heb de retourtijd aangepast.");
-    return;
-  }
-});
+   
 
 form.addEventListener("submit", () => { syncLocation("pickup"); syncLocation("return"); });
 
@@ -237,6 +221,22 @@ form.addEventListener("submit", async (e) => {
   const items = collectItems();
   if (items.length === 0) {
     if (!confirm("De gear-lijst is leeg. Toch doorgaan en PDF maken?")) return;
+  }
+
+    // --- harde validatie op datums ---
+  const pickDT = (fpPickup && fpPickup.selectedDates[0]) ? fpPickup.selectedDates[0] : null;
+  const retDT  = (fpReturn && fpReturn.selectedDates[0]) ? fpReturn.selectedDates[0] : null;
+
+  if (!pickDT || !retDT) {
+    alert("Vul eerst de ophaal- en retourdatum in.");
+    return;
+  }
+  const minReturn = new Date(pickDT.getTime() + 15*60*1000); // wijzig 15 -> 60 voor 1 uur buffer
+
+  if (retDT < minReturn) {
+    fpReturn.setDate(minReturn, true);
+    alert("Retour kan niet vóór ophaal (min. +15 min). Ik heb de retourtijd aangepast.");
+    return;
   }
 
   const id = makeId();
