@@ -495,6 +495,113 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
     }
   }
 })();
+
+// === PDF ophalen via Apps Script en inlezen met PDF.js ===
+async function fetchDrivePdfBase64({ endpoint, fileId, name, sig }) {
+  const url = new URL(endpoint);
+  url.searchParams.set('action', 'getpdf');
+  url.searchParams.set('fileId', fileId);
+  url.searchParams.set('name', name);
+  url.searchParams.set('sig',  sig);
+
+  const r = await fetch(url.toString(), { method: 'GET' });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || 'fetch failed');
+  return j; // { ok, filename, mimeType, dataBase64 }
+}
+
+function uint8FromBase64(b64) {
+  const bin = atob(b64);
+  const len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i=0; i<len; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+async function importFromDriveIfParams() {
+  const params = new URLSearchParams(location.search);
+  const fileId = params.get('fileId'); // <-- Drive fileId in je link
+  const name   = (params.get('name') || '').trim();
+  const sig    = (params.get('sig')  || '').trim();
+  if (!fileId || !name || !sig) return;
+
+  // pdf.js worker
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+  }
+
+  try {
+    const ENDPOINT = "PAK_HIER_JE_APPS_SCRIPT_WEBAPP_URL"; // <-- invullen
+    const res = await fetchDrivePdfBase64({ endpoint: ENDPOINT, fileId, name, sig });
+    const bytes = uint8FromBase64(res.dataBase64);
+
+    const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+
+    let text = "";
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const tc = await page.getTextContent();
+      text += tc.items.map(t => t.str).join("\n") + "\n";
+    }
+
+    // Hergebruik je bestaande parsers:
+    fillDatesFromText(text);
+    fillRenterFromText(text);
+    const rows = parseBooqableItems(text);
+    if (rows.length) {
+      rows.forEach(r => addRow(r));
+      toast(`Gearlijst geïmporteerd (${rows.length} regels)`);
+    } else {
+      toast("PDF geladen, maar geen items herkend.", true);
+    }
+  } catch (e) {
+    console.error(e);
+    toast("Kon de PDF niet ophalen (Drive).", true);
+  }
+}
+
+// ---- Parsers (zoals eerder gegeven) ----
+function parseBooqableItems(txt) {
+  const lines = txt.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const out = [];
+  const re = /^(\d+)\s*x\s+(.+?)\s+(?:\d+\s+day|day|days|\d+\s+days)\b/i;
+  for (const ln of lines) {
+    const m = ln.match(re);
+    if (m) {
+      const qty = parseInt(m[1], 10) || 1;
+      const name = m[2].replace(/\s+€.*$/, "").trim();
+      out.push({ Item: name, Serial: "", Qty: qty, Condition: "" });
+    }
+  }
+  return out;
+}
+
+function fillDatesFromText(txt){
+  const pick = /Pickup\s+(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2})/i.exec(txt);
+  const ret  = /Return\s+(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2})/i.exec(txt);
+  const fmt = (d, t) => `${d}, ${t}`;
+  const fpP = document.getElementById("pickupDateTime")?._flatpickr;
+  const fpR = document.getElementById("returnDateTime")?._flatpickr;
+  if (pick && fpP) fpP.setDate(fmt(pick[1], pick[2]), true);
+  if (ret  && fpR) fpR.setDate(fmt(ret[1],  ret[2]),  true);
+}
+
+function fillRenterFromText(txt){
+  const email = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.exec(txt);
+  if (email) document.querySelector('input[name="email"]')?.value = email[0];
+  let name = "";
+  if (email) {
+    const before = txt.slice(0, email.index).split(/\r?\n/).pop() || "";
+    if (before && !/totaal|btw|insurance|verze/i.test(before)) name = before.trim();
+  }
+  if (!name) {
+    const nm = /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/.exec(txt);
+    if (nm) name = nm[1];
+  }
+  if (name) document.querySelector('input[name="renterName"]')?.value = name;
+}
+
 // ---------- Kleine bevestiging (toast) ----------
 function toast(msg, isError=false) {
   let el = document.getElementById("tvl-toast");
