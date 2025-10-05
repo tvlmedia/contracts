@@ -3,13 +3,23 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#111827" />
   <title>TVL Rental – Uitleenformulier & akkoord</title>
 
-  <!-- ===== Styles ===== -->
+  <!-- Favicon (voorkomt 404) -->
+  <link rel="icon" href="data:," />
+
+  <!-- Styles -->
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
-  <!-- ===== JS-libs ===== -->
+  <!-- Hints voor snellere loads -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="dns-prefetch" href="//cdn.jsdelivr.net" />
+  <link rel="dns-prefetch" href="//cdnjs.cloudflare.com" />
+
+  <!-- Libs (volgorde is belangrijk) -->
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
@@ -18,44 +28,50 @@
   <script defer src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-  <!-- ===== Jouw script als laatste ===== -->
-  <script defer src="script.js"></script>
+  <!-- Jouw script als laatste (cache-busting met v=) -->
+  <script defer src="script.js?v=10"></script>
 </head>
 
-<body class="locked">   <!-- <-- voeg class locked toe -->
+<body class="locked">
+  <noscript>Je hebt JavaScript nodig om dit formulier te gebruiken.</noscript>
 
-  <!-- haal hidden + inline style weg -->
-  <div id="gate" class="gate">
+  <!-- Gate / naamcontrole -->
+  <div id="gate" class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
     <div class="gate-card">
-      <h2>Controle</h2>
+      <h2 id="gate-title">Controle</h2>
       <p>Vul je naam in om de overdracht te openen.</p>
-      <label>Naam
-        <input type="text" id="gateName" placeholder="Voor- en achternaam" autocomplete="name" />
-      </label>
-      <button type="button" id="gateBtn">Doorgaan</button>
-      <p id="gateErr" class="gate-err hidden">Naam klopt niet. Probeer opnieuw.</p>
+
+      <label for="gateName">Naam</label>
+      <input
+        type="text"
+        id="gateName"
+        placeholder="Voor- en achternaam"
+        autocomplete="name"
+        enterkeyhint="go"
+        inputmode="text"
+      />
+
+      <button type="button" id="gateBtn" class="primary">Doorgaan</button>
+      <p id="gateErr" class="gate-err hidden" role="alert">Naam klopt niet. Probeer opnieuw.</p>
     </div>
   </div>
 
-  <!-- ... rest van je pagina ... -->
-
   <!-- ==================== FORMULIER ==================== -->
-  <div class="container">
+  <div class="container" aria-live="polite">
     <header>
       <h1>TVL Rental – Overdrachtsformulier</h1>
-      <p class="subtitle">Vul in, controleer de lijst, teken & download PDF.</p>
+      <p class="subtitle">Vul in, controleer de lijst, teken & download de PDF.</p>
     </header>
 
-    <form id="rentalForm">
-
+    <form id="rentalForm" autocomplete="off" novalidate>
       <!-- Huurder & project -->
       <section>
         <h2>Huurder & Project</h2>
         <div class="grid">
-          <label>Naam huurder*<input type="text" name="renterName" required /></label>
-          <label>Bedrijf<input type="text" name="company" /></label>
-          <label>E-mail*<input type="email" name="email" required /></label>
-          <label>Telefoon<input type="tel" name="phone" /></label>
+          <label>Naam huurder*<input type="text" name="renterName" required autocomplete="name" /></label>
+          <label>Bedrijf<input type="text" name="company" autocomplete="organization" /></label>
+          <label>E-mail*<input type="email" name="email" required autocomplete="email" /></label>
+          <label>Telefoon<input type="tel" name="phone" autocomplete="tel" /></label>
           <label>Projectnaam*<input type="text" name="project" required /></label>
           <label>PO / Referentie<input type="text" name="po" /></label>
         </div>
@@ -65,40 +81,39 @@
       <section>
         <h2>Periode</h2>
         <div class="grid">
-          <label>Ophaal datum / tijd*
-            <input type="text" name="pickup" id="pickupDateTime" required />
-          </label>
-          <label>Retour datum / tijd*
-            <input type="text" name="return" id="returnDateTime" required />
-          </label>
+          <label for="pickupDateTime">Ophaal datum / tijd*</label>
+          <input type="text" name="pickup" id="pickupDateTime" required inputmode="numeric" />
+
+          <label for="returnDateTime">Retour datum / tijd*</label>
+          <input type="text" name="return" id="returnDateTime" required inputmode="numeric" />
 
           <!-- Ophalen -->
-          <label>Locatie ophalen
-            <select id="pickupMode">
-              <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
-              <option value="delivery">Brengen (adres invullen)</option>
-            </select>
-          </label>
+          <label for="pickupMode">Locatie ophalen</label>
+          <select id="pickupMode">
+            <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
+            <option value="delivery">Brengen (adres invullen)</option>
+          </select>
+
           <div id="pickupDeliveryWrap" class="span-2 hidden">
-            <label>Adres voor brengen (ophalen)
-              <input type="text" id="pickupDeliveryInput" placeholder="Straat + nr, plaats" disabled />
-            </label>
+            <label for="pickupDeliveryInput">Adres voor brengen (ophalen)</label>
+            <input type="text" id="pickupDeliveryInput" placeholder="Straat + nr, plaats" disabled />
           </div>
+
           <input type="hidden" name="pickupLocation" id="pickupLocation"
                  value="Beek en Donk (Donkersvoorstestraat 3)" />
 
           <!-- Retour -->
-          <label>Locatie retour
-            <select id="returnMode">
-              <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
-              <option value="delivery">Brengen (adres invullen)</option>
-            </select>
-          </label>
+          <label for="returnMode">Locatie retour</label>
+          <select id="returnMode">
+            <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
+            <option value="delivery">Brengen (adres invullen)</option>
+          </select>
+
           <div id="returnDeliveryWrap" class="span-2 hidden">
-            <label>Adres voor brengen (retour)
-              <input type="text" id="returnDeliveryInput" placeholder="Straat + nr, plaats" disabled />
-            </label>
+            <label for="returnDeliveryInput">Adres voor brengen (retour)</label>
+            <input type="text" id="returnDeliveryInput" placeholder="Straat + nr, plaats" disabled />
           </div>
+
           <input type="hidden" name="returnLocation" id="returnLocation"
                  value="Beek en Donk (Donkersvoorstestraat 3)" />
         </div>
@@ -107,8 +122,11 @@
       <!-- Algemene voorwaarden -->
       <section>
         <h2>Algemene voorwaarden</h2>
-        <p>Lees de <a id="termsLink" href="AV.pdf" target="_blank" rel="noopener">
-          Algemene Voorwaarden</a> zorgvuldig.</p>
+        <p>
+          Lees de
+          <a id="termsLink" href="AV.pdf" target="_blank" rel="noopener">Algemene Voorwaarden</a>
+          zorgvuldig.
+        </p>
         <label class="checkbox">
           <input type="checkbox" id="acceptTerms" required />
           <span>Ik heb de algemene voorwaarden gelezen en ga akkoord*</span>
@@ -118,7 +136,9 @@
       <!-- Gearlijst -->
       <section>
         <h2>Gear-lijst</h2>
-        <details class="hint"><summary>CSV import (optioneel)</summary>
+
+        <details class="hint">
+          <summary>CSV import (optioneel)</summary>
           <p>Upload een CSV met kolommen: <strong>Item, Serial, Qty, Condition</strong>.</p>
           <input type="file" id="csvInput" accept=".csv" />
         </details>
@@ -127,18 +147,22 @@
           <table id="itemsTable">
             <thead>
               <tr>
-                <th>Item</th><th>Serial</th><th>Qty</th><th>Condition</th><th></th>
+                <th>Item</th>
+                <th>Serial</th>
+                <th>Qty</th>
+                <th>Condition</th>
+                <th aria-label="Verwijderen kolom"></th>
               </tr>
             </thead>
             <tbody></tbody>
           </table>
 
-          <div class="row add">
+          <div class="row add" role="group" aria-label="Item toevoegen">
             <input type="text" id="addItem" placeholder="Item" />
             <input type="text" id="addSerial" placeholder="Serial / ID" />
             <input type="number" id="addQty" placeholder="Qty" min="1" value="1" />
-            <input type="text" id="addCondition" placeholder="Condition (bijv. 'netjes')" />
-            <button type="button" id="btnAdd">Toevoegen</button>
+            <input type="text" id="addCondition" placeholder="Condition (bijv. ‘netjes’)" />
+            <button type="button" id="btnAdd" class="secondary">Toevoegen</button>
           </div>
         </div>
       </section>
@@ -146,19 +170,21 @@
       <!-- Handtekening -->
       <section>
         <h2>Handtekening</h2>
-        <p>Ondergetekende bevestigt dat alle bovengenoemde items
-           in goede orde zijn ontvangen en akkoord gaat met de Algemene Voorwaarden.</p>
+        <p>
+          Ondergetekende bevestigt dat alle bovengenoemde items in goede orde zijn ontvangen
+          en akkoord gaat met de Algemene Voorwaarden.
+        </p>
         <div class="sig-wrap">
-          <canvas id="signaturePad" width="700" height="220"></canvas>
+          <canvas id="signaturePad" width="700" height="220" aria-label="Handtekening pad"></canvas>
           <div class="sig-actions">
-            <button type="button" id="btnClearSig">Wissen</button>
+            <button type="button" id="btnClearSig" class="secondary">Wissen</button>
           </div>
         </div>
       </section>
 
       <!-- Submit -->
       <section class="actions">
-        <button type="submit" id="btnGenerate">Genereer PDF</button>
+        <button type="submit" id="btnGenerate" class="primary">Genereer PDF</button>
       </section>
     </form>
 
