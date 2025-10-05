@@ -160,3 +160,26 @@ select:focus{ border-color:#2f7df0; box-shadow:0 0 0 3px rgb(47 125 240 / .2); }
 /* Vervaag de pagina zolang de gate open is */
 body.locked .container{ filter: blur(2px); pointer-events:none; user-select:none; }
 body:not(.locked) #gate{ display:none; }
+html, body { height: 100%; }
+
+.gate{
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;              /* mooi op kleine schermen */
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+}
+.gate-card{
+  width: min(92vw, 520px);
+  background: #111827;
+  color: #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.45);
+  padding: 22px 24px;
+}
+.hidden{ display:none !important; }
+body.locked .container{ filter: blur(2px); pointer-events:none; user-select:none; }
+body:not(.locked) #gate{ display:none; }
