@@ -4,7 +4,20 @@ if (window.pdfjsLib) {
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
 }
 
-// ====== Utils ======
+/* =========================
+   CONFIG: ENDPOINTS
+   ========================= */
+// Web App die de PDF uit je Drive-map haalt (GET ?file=contract-xxx.pdf)
+const DRIVE_ENDPOINT =
+  "https://script.google.com/macros/s/AKfycbwOHc7ytcXLyi5D7HWrFha_hZbG5teEr9qFuprqLQ3h1OeePvkM0-LkYmbmgtafH1A/exec";
+
+// Apps Script (echo) die een mail verstuurt met de PDF als base64-bijlage (POST)
+const MAIL_ENDPOINT =
+  "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLjDBKd9uA_nV_cED5o0Sy8OEhl7th0bqhoij4uWE_yrwdZwkOa7ZH0cVcm4yRGiIxqqknMAjb_3vZEqsOxoxCpclWWcHBgDCczpKMJ5wjIL45C-Zu0XToFfUtvvU3P1GrFHurLUZveSnMYkLNpmtfiKKjmTNKJGMN7oA1GfCCKBvYxtAIRxBGAG8_WcaIchGpIpbxQ3rErd-1Wx-DZer8N3IkRW9qu9r3aPq3NMntO2rsgcCWPaauem6tMLs100MW_ukw5xV3am4-oesGLpqbVcklJBkNj9nOgEW4N5MGma6Q9VooYd3Xtx4d0pfw&lib=MeWuCCcpF7n6CEzeDUYALnNbD0KRScYky";
+
+/* =========================
+   Utils
+   ========================= */
 const $ = s => document.querySelector(s);
 const itemsTbody = $("#itemsTable tbody");
 const addBtn = $("#btnAdd");
@@ -14,7 +27,9 @@ const acceptTerms = $("#acceptTerms");
 const yearEl = $("#year");
 yearEl.textContent = new Date().getFullYear();
 
-// ====== Signature Pad ======
+/* =========================
+   Signature Pad
+   ========================= */
 let signaturePad;
 window.addEventListener("load", () => {
   const canvas = document.getElementById("signaturePad");
@@ -64,13 +79,14 @@ function toast(msg, isError=false){
   toast._t = setTimeout(()=> el.style.display = "none", 2600);
 }
 
-// ====== Date/Time pickers (Flatpickr) ======
+/* =========================
+   Date/Time pickers
+   ========================= */
 let fpPickup, fpReturn;
 
 (function initDateTimePickers(){
   if (!window.flatpickr) { console.warn("Flatpickr not loaded"); return; }
 
-  // rond “nu” af op 15 min
   const now = new Date();
   const rounded = new Date(now);
   rounded.setMinutes(Math.ceil(rounded.getMinutes()/15)*15, 0, 0);
@@ -91,25 +107,20 @@ let fpPickup, fpReturn;
     const minDay   = midnight(pick);
     const minStamp = pick.getTime();
 
-    // Blokkeer dagen vóór de ophaaldag
     fpReturn.set("disable", [ (date) => date < minDay ]);
-
-    // Minimale datum/tijd en corrigeer huidige waarde
     fpReturn.set("minDate", pick);
-    const minReturn = addMinutes(pick, 15); // buffer (zet 60 i.p.v. 15 voor 1 uur)
+    const minReturn = addMinutes(pick, 15);
     const current   = fpReturn.selectedDates[0];
     if (!current || current.getTime() < minStamp || current < minReturn) {
       fpReturn.setDate(minReturn, false);
     }
   }
 
-  // 1) Init RETURN eerst
   fpReturn = flatpickr("#returnDateTime", {
     ...common,
     minDate: rounded
   });
 
-  // 2) Init PICKUP daarna
   fpPickup = flatpickr("#pickupDateTime", {
     ...common,
     defaultDate: rounded,
@@ -119,15 +130,14 @@ let fpPickup, fpReturn;
     onValueUpdate: (sel) => hardenReturnCalendar(sel[0] || rounded)
   });
 
-  // 3) Eerste hardening fallback
   hardenReturnCalendar(fpPickup.selectedDates[0] || rounded);
-
-  // optioneel: global voor debug
   window.fpPickup = fpPickup;
   window.fpReturn = fpReturn;
 })();
 
-// ====== Locaties dropdowns ======
+/* =========================
+   Locaties dropdowns
+   ========================= */
 const ADDRESS_OFFICE = "Beek en Donk (Donkersvoorstestraat 3)";
 
 function syncLocation(mode){
@@ -164,7 +174,9 @@ form.addEventListener("submit", () => {
   syncLocation("return");
 });
 
-// ====== Items tabel ======
+/* =========================
+   Items tabel
+   ========================= */
 function addRow({Item="", Serial="", Qty=1, Condition=""}) {
   const tr = document.createElement("tr");
   tr.innerHTML = `
@@ -187,7 +199,9 @@ addBtn.addEventListener("click", () => {
   $("#addItem").value = ""; $("#addSerial").value = ""; $("#addQty").value = 1; $("#addCondition").value = "";
 });
 
-// ====== CSV upload ======
+/* =========================
+   CSV upload
+   ========================= */
 csvInput.addEventListener("change", (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -208,7 +222,9 @@ csvInput.addEventListener("change", (e) => {
   });
 });
 
-// ====== Helpers ======
+/* =========================
+   Helpers
+   ========================= */
 function collectItems() {
   const rows = [...itemsTbody.querySelectorAll("tr")];
   return rows.map(tr => {
@@ -231,7 +247,9 @@ async function getIP() {
   catch (_) { return {}; }
 }
 
-// ====== PDF genereren + mailen ======
+/* =========================
+   PDF genereren + mailen
+   ========================= */
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!acceptTerms.checked) { alert("Je moet akkoord gaan met de algemene voorwaarden."); return; }
@@ -244,15 +262,12 @@ form.addEventListener("submit", async (e) => {
     if (!confirm("De gear-lijst is leeg. Toch doorgaan en PDF maken?")) return;
   }
 
-  // --- harde validatie op datums ---
+  // Datums checken
   const pickDT = (fpPickup && fpPickup.selectedDates[0]) ? fpPickup.selectedDates[0] : null;
   const retDT  = (fpReturn && fpReturn.selectedDates[0]) ? fpReturn.selectedDates[0] : null;
+  if (!pickDT || !retDT) { alert("Vul eerst de ophaal- en retourdatum in."); return; }
 
-  if (!pickDT || !retDT) {
-    alert("Vul eerst de ophaal- en retourdatum in.");
-    return;
-  }
-  const minReturn = new Date(pickDT.getTime() + 15*60*1000); // evt. 60*60*1000 voor 1 uur
+  const minReturn = new Date(pickDT.getTime() + 15*60*1000);
   if (retDT < minReturn) {
     fpReturn.setDate(minReturn, true);
     alert("Retour kan niet vóór ophaal (min. +15 min). Ik heb de retourtijd aangepast.");
@@ -275,11 +290,11 @@ form.addEventListener("submit", async (e) => {
   doc.setFont("helvetica","bold"); doc.setFontSize(16);
   doc.text("TVL Rental – Overdrachtsformulier & Akkoord", margin, 34);
 
+  // Meta
   doc.setTextColor(0,0,0);
   doc.setFont("helvetica","normal"); doc.setFontSize(11);
   y = 72;
 
-  // Meta
   const metaLeft = [
     ["Formulier ID", id],
     ["Datum/Tijd", now.toLocaleString()],
@@ -351,13 +366,12 @@ form.addEventListener("submit", async (e) => {
   // 1) Download voor de huurder
   doc.save(filename);
 
-  // 2) Stuur per mail naar TVL (via Apps Script)
+  // 2) Mail naar TVL (met cc naar huurder indien valide e-mail)
   try {
     const ab = doc.output("arraybuffer");
     const b64 = base64FromArrayBuffer(ab);
-const ENDPOINT = "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLjDBKd9uA_nV_cED5o0Sy8OEhl7th0bqhoij4uWE_yrwdZwkOa7ZH0cVcm4yRGiIxqqknMAjb_3vZEqsOxoxCpclWWcHBgDCczpKMJ5wjIL45C-Zu0XToFfUtvvU3P1GrFHurLUZveSnMYkLNpmtfiKKjmTNKJGMN7oA1GfCCKBvYxtAIRxBGAG8_WcaIchGpIpbxQ3rErd-1Wx-DZer8N3IkRW9qu9r3aPq3NMntO2rsgcCWPaauem6tMLs100MW_ukw5xV3am4-oesGLpqbVcklJBkNj9nOgEW4N5MGma6Q9VooYd3Xtx4d0pfw&lib=MeWuCCcpF7n6CEzeDUYALnNbD0KRScYky";
-    
-    await fetch(ENDPOINT, {
+
+    await fetch(MAIL_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({
@@ -387,7 +401,9 @@ const ENDPOINT = "https://script.googleusercontent.com/macros/echo?user_content_
   }
 });
 
-// ====== PDF layout helpers ======
+/* =========================
+   PDF layout helpers
+   ========================= */
 function drawTwoCols(doc, leftPairs, rightPairs, x, y, colW, lineH) {
   doc.setFontSize(11); doc.setFont("helvetica","normal");
   leftPairs.forEach((row,i)=>{
@@ -408,7 +424,9 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   return y + lines.length * (fontSize + 2);
 }
 
-// ====== Naam / wachtwoord gate ======
+/* =========================
+   Gate (naam/wachtwoord)
+   ========================= */
 (async function initGate(){
   const input = document.getElementById("gateName");
   const btn   = document.getElementById("gateBtn");
@@ -479,13 +497,13 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
     }
   }
 })();
-// ====== PDF import uit Drive + parsing ======
-// Drive-endpoint (Apps Script dat de PDF uit je map leest)
-const DRIVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbwOHc7ytcXLyi5D7HWrFha_hZbG5teEr9qFuprqLQ3h1OeePvkM0-LkYmbmgtafH1A/exec";
 
+/* =========================
+   PDF import uit Drive + parsing
+   ========================= */
 async function afterUnlock(){
   const url = new URL(location.href);
-  const order = url.searchParams.get("order"); // bv "contract-228.pdf"
+  const order = url.searchParams.get("order"); // bijv. "contract-228.pdf"
   if (!order) return;
 
   try {
@@ -493,7 +511,6 @@ async function afterUnlock(){
     const pdfAb = await fetchPdfFromDrive(order);
     const text  = await extractTextFromPdf(pdfAb);
 
-    // optioneel: autofill email/naam/datatums uit PDF-tekst
     fillRenterFromText(text);
     fillDatesFromText(text);
 
@@ -535,7 +552,7 @@ async function extractTextFromPdf(arrayBuffer){
   return fullText;
 }
 
-// ---- Autofill helpers uit PDF-tekst (optioneel, werkt “best-effort”) ----
+// Autofill helpers uit PDF-tekst
 function fillDatesFromText(txt){
   const pick = /Pickup\s+(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2})/i.exec(txt);
   const ret  = /Return\s+(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2})/i.exec(txt);
@@ -561,13 +578,12 @@ function fillRenterFromText(txt){
   if (name) document.querySelector('input[name="renterName"]')?.value = name;
 }
 
-// ---- Booqable items parser (pas eventueel aan aan jouw layout) ----
+// Booqable items parser (heuristisch)
 function parseBooqableItems(text){
   const rows = [];
   const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
 
   for (const line of lines){
-    // patroon 1: "2x Sony A7S III  day(s) ..." of "2 x ..."
     let m = line.match(/^(\d+)\s*[xX]?\s+(.+?)\s+(?:\d+\s+day|day|days|\d+\s+days)\b/i);
     if (m){
       const qty = parseInt(m[1],10)||1;
@@ -576,14 +592,12 @@ function parseBooqableItems(text){
       continue;
     }
 
-    // patroon 2: "2 Sony A7S III – Serial: ABC123"
     m = line.match(/^(\d+)\s+(.+?)\s+(?:Serial|S\/N|SN|ID)[:\s]+([A-Z0-9\-\/._]+)$/i);
     if (m){
       rows.push({ Item: m[2], Serial: m[3], Qty: parseInt(m[1],10)||1, Condition: "" });
       continue;
     }
 
-    // patroon 3: "Itemnaam (Serial: XYZ)  Qty: 2"
     m = line.match(/^(.+?)\s*\(.*?(?:Serial|S\/N)[:\s]+([^)]+)\)\s+Qty[:\s]+(\d+)/i);
     if (m){
       rows.push({ Item: m[1], Serial: m[2], Qty: parseInt(m[3],10)||1, Condition: "" });
