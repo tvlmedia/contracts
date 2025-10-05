@@ -23,6 +23,11 @@ window.addEventListener("load", () => {
   resize();
   signaturePad = new SignaturePad(canvas, { backgroundColor: "rgba(255,255,255,1)" });
 });
+
+function isValidEmail(s){
+  return typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+}
+
 $("#btnClearSig").addEventListener("click", () => signaturePad.clear());
 
 function base64FromArrayBuffer(ab){
@@ -279,29 +284,30 @@ try {
   const ENDPOINT = "https://script.google.com/macros/s/AKfycbyz3Yxfi_UmvyVo1qWYKiIGI4Z6lU0oCqSBSYn1bqBpOeqm3Q4gm746LuMp1uDsF3U/exec";
 
   // Gebruik text/plain om CORS preflight te voorkomen
-  await fetch(ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({
-      subject: `TVL Overdracht – ${safeProject} (${id})`,
-      body: `
-        <p>Nieuwe overdracht PDF.</p>
-        <ul>
-          <li><b>Formulier ID</b>: ${id}</li>
-          <li><b>Project</b>: ${data.project || ""}</li>
-          <li><b>Huurder</b>: ${data.renterName || ""}</li>
-          <li><b>Ophaal</b>: ${data.pickup || ""}</li>
-          <li><b>Retour</b>: ${data.return || ""}</li>
-        </ul>
-        <p>Bijlage: ${filename}</p>
-      `,
-      filename,
-      mimeType: "application/pdf",
-      attachmentBase64: b64
-    })
-  });
-
-  toast("PDF gemaild naar info@tvlrental.nl ✅");
+ await fetch(ENDPOINT, {
+  method: "POST",
+  headers: { "Content-Type": "text/plain;charset=utf-8" },
+  body: JSON.stringify({
+    subject: `TVL Overdracht – ${safeProject} (${id})`,
+    body: `
+      <p>Nieuwe overdracht PDF.</p>
+      <ul>
+        <li><b>Formulier ID</b>: ${id}</li>
+        <li><b>Project</b>: ${data.project || ""}</li>
+        <li><b>Huurder</b>: ${data.renterName || ""}</li>
+        <li><b>Ophaal</b>: ${data.pickup || ""}</li>
+        <li><b>Retour</b>: ${data.return || ""}</li>
+      </ul>
+      <p>Bijlage: ${filename}</p>
+    `,
+    filename,
+    mimeType: "application/pdf",
+    attachmentBase64: b64,
+    cc: isValidEmail(data.email) ? data.email : "",   // <-- cc naar huurder
+    replyTo: isValidEmail(data.email) ? data.email : ""
+  })
+});
+ toast(`PDF gemaild naar info@tvlrental.nl${isValidEmail(data.email) ? " + cc naar huurder" : ""} ✅`);
 } catch (err) {
   console.error(err);
   toast("Mailen mislukte (verbinding) — PDF wel gedownload.", true);
