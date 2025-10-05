@@ -43,46 +43,46 @@
       </section>
 
       <!-- *** ENKEL DE NIEUWE PERIODE-SECTIE *** -->
-      <section>
-        <h2>Periode</h2>
-        <div class="grid">
-          <!-- Date/Time pickers -->
-          <label>Ophaal datum/tijd*
-            <input type="text" name="pickup" id="pickupDateTime" required />
-          </label>
-          <label>Retour datum/tijd*
-            <input type="text" name="return" id="returnDateTime" required />
-          </label>
+     <section>
+  <h2>Periode</h2>
+  <div class="grid">
+    <!-- Date/Time pickers -->
+    <label>Ophaal datum/tijd*
+      <input type="text" name="pickup" id="pickupDateTime" required />
+    </label>
+    <label>Retour datum/tijd*
+      <input type="text" name="return" id="returnDateTime" required />
+    </label>
 
-          <!-- Pickup -->
-<label>Locatie ophalen
-  <select id="pickupMode">
-    <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
-    <option value="delivery">Brengen (adres invullen)</option>
-  </select>
-</label>
-<div id="pickupDeliveryWrap" class="span-2 hidden">…</div>
-  <label>Adres voor brengen (ophalen)
-    <input type="text" id="pickupDeliveryInput" placeholder="Straat + nr, plaats" disabled />
-  </label>
-</div>
-<input type="hidden" name="pickupLocation" id="pickupLocation" value="Beek en Donk (Donkersvoorstestraat 3)" />
+    <!-- Locatie ophalen -->
+    <label>Locatie ophalen
+      <select id="pickupMode">
+        <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
+        <option value="delivery">Brengen (adres invullen)</option>
+      </select>
+    </label>
+    <div id="pickupDeliveryWrap" class="span-2 hidden">
+      <label>Adres voor brengen (ophalen)
+        <input type="text" id="pickupDeliveryInput" placeholder="Straat + nr, plaats" disabled />
+      </label>
+    </div>
+    <input type="hidden" name="pickupLocation" id="pickupLocation" value="Beek en Donk (Donkersvoorstestraat 3)" />
 
-<!-- Return -->
-<label>Locatie retour
-  <select id="returnMode">
-    <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
-    <option value="delivery">Brengen (adres invullen)</option>
-  </select>
-</label>
-<div id="returnDeliveryWrap" class="span-2 hidden">…</div>
-        <label>Adres voor brengen (retour)
-    <input type="text" id="returnDeliveryInput" placeholder="Straat + nr, plaats" disabled />
-  </label>
-</div>
-<input type="hidden" name="returnLocation" id="returnLocation" value="Beek en Donk (Donkersvoorstestraat 3)" />
-</div>  <!-- sluit .grid -->
-</section>  <!-- sluit Periode -->
+    <!-- Locatie retour -->
+    <label>Locatie retour
+      <select id="returnMode">
+        <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
+        <option value="delivery">Brengen (adres invullen)</option>
+      </select>
+    </label>
+    <div id="returnDeliveryWrap" class="span-2 hidden">
+      <label>Adres voor brengen (retour)
+        <input type="text" id="returnDeliveryInput" placeholder="Straat + nr, plaats" disabled />
+      </label>
+    </div>
+    <input type="hidden" name="returnLocation" id="returnLocation" value="Beek en Donk (Donkersvoorstestraat 3)" />
+  </div> <!-- sluit .grid -->
+</section> <!-- sluit Periode -->
 
       <section>
         <h2>Algemene voorwaarden</h2>
