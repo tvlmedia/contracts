@@ -466,3 +466,41 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
     }
   }
 })();
+// ---------- Kleine bevestiging (toast) ----------
+function toast(msg, isError=false) {
+  let el = document.getElementById("tvl-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "tvl-toast";
+    el.style.cssText = `
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: ${isError ? "#b00020" : "#0e1116"};
+      color: #e9eef3;
+      border: 1px solid ${isError ? "#ff6b6b" : "#2c7be5"};
+      padding: 12px 18px;
+      border-radius: 10px;
+      font: 15px/1.4 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      box-shadow: 0 10px 25px rgba(0,0,0,.4);
+      opacity: 0;
+      transition: opacity .3s ease, transform .3s ease;
+      z-index: 99999;
+      pointer-events: none;
+    `;
+    document.body.appendChild(el);
+  }
+
+  el.textContent = msg;
+  el.style.background = isError ? "#b00020" : "#0e1116";
+  el.style.borderColor = isError ? "#ff6b6b" : "#2c7be5";
+  el.style.opacity = "1";
+  el.style.transform = "translateX(-50%) translateY(0)";
+
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => {
+    el.style.opacity = "0";
+    el.style.transform = "translateX(-50%) translateY(15px)";
+  }, 3000);
+}
