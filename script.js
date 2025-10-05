@@ -59,6 +59,8 @@ function toast(msg, isError=false){
 }
 
 // ===== Date/Time pickers (Flatpickr) =====
+let fpPickup, fpReturn;
+
 (function initDateTimePickers(){
   if (!window.flatpickr) return;
 
@@ -67,46 +69,41 @@ function toast(msg, isError=false){
   const rounded = new Date(now);
   rounded.setMinutes(Math.ceil(rounded.getMinutes()/15)*15, 0, 0);
 
-  const common = { enableTime:true, dateFormat:"d-m-Y, H:i", time_24hr:true };
+  const common = {
+    enableTime: true,
+    dateFormat: "d-m-Y, H:i",
+    time_24hr: true,
+    allowInput: false,     // niet handmatig intypen
+    disableMobile: true    // forceer Flatpickr i.p.v. native mobile picker
+  };
 
-  // init
-  const fpPickup = flatpickr("#pickupDateTime", {
+  fpPickup = flatpickr("#pickupDateTime", {
     ...common,
     defaultDate: rounded,
-    minDate: rounded,               // NOOIT verleden voor ophaal
-    onChange: syncReturnBounds,     // als pickup wijzigt -> return beperken
+    minDate: rounded,
+    onChange: syncReturnBounds,
     onReady:  syncReturnBounds
   });
 
-  const fpReturn = flatpickr("#returnDateTime", {
+  fpReturn = flatpickr("#returnDateTime", {
     ...common,
-    minDate: rounded                // fallback; wordt direct aangescherpt
+    minDate: rounded
   });
 
-  function sameDay(a,b){
-    return a.getFullYear()===b.getFullYear() &&
-           a.getMonth()===b.getMonth() &&
-           a.getDate()===b.getDate();
-  }
+  function addMinutes(d, mins){ const x = new Date(d); x.setMinutes(x.getMinutes()+mins,0,0); return x; }
 
-  function addMinutes(d, mins){
-    const x = new Date(d); x.setMinutes(x.getMinutes()+mins); return x;
-  }
-
-  // Zorg dat retour ≥ pickup (minimaal +15 min) & nooit verleden
+  // Zorg dat retour ≥ pickup (+15 min) & nooit verleden
   function syncReturnBounds(){
     const pick = fpPickup.selectedDates[0] || rounded;
 
-    // Min datum voor return = pickup datum/tijd
+    // lock de kalender aan de onderkant
     fpReturn.set("minDate", pick);
 
-    // Als retour op dezelfde dag ligt, zorg dat tijd >= pickup tijd
-    // (Flatpickr heeft geen conditionele minTime per dag, dus we corrigeren de waarde zelf)
+    // als huidige retour kleiner is dan minReturn -> zet 'm op minReturn
     const currentReturn = fpReturn.selectedDates[0];
-    const minReturn     = addMinutes(pick, 15); // buffer
-
+    const minReturn     = addMinutes(pick, 15);
     if (!currentReturn || currentReturn < minReturn) {
-      fpReturn.setDate(minReturn, false); // pas waarde aan, geen onChange loop
+      fpReturn.setDate(minReturn, false);
     }
   }
 })();
@@ -141,7 +138,25 @@ function syncLocation(mode){
   if (sel) sel.addEventListener("change", ()=>syncLocation(m));
   if (inp) inp.addEventListener("input", ()=>syncLocation(m));
   syncLocation(m); // initial state
+
+    // --- harde validatie op datums ---
+  const pickDT = (fpPickup && fpPickup.selectedDates[0]) ? fpPickup.selectedDates[0] : null;
+  const retDT  = (fpReturn && fpReturn.selectedDates[0]) ? fpReturn.selectedDates[0] : null;
+
+  if (!pickDT || !retDT) {
+    alert("Vul eerst de ophaal- en retourdatum in.");
+    return;
+  }
+  const minReturn = new Date(pickDT.getTime() + 15*60*1000);
+
+  if (retDT < minReturn) {
+    // corrigeer en blokkeer submit
+    fpReturn.setDate(minReturn, true);
+    alert("Retour kan niet vóór ophaal (min. +15 min). Ik heb de retourtijd aangepast.");
+    return;
+  }
 });
+
 form.addEventListener("submit", () => { syncLocation("pickup"); syncLocation("return"); });
 
 // ===== Items tabel =====
