@@ -38,7 +38,6 @@ function isValidEmail(s) {
   return typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
 
-// ——— validators / normalizers
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const NL_PHONE_RE = /^(?:\+31|0031|0)\s*6(?:[\s-]?\d){8}$/;
 
@@ -62,7 +61,7 @@ function normalizePhoneNL(raw){
   return s;
 }
 
-// gate input classificatie
+// — gate input classificatie
 function classifyLoginInput(v){
   const s = (v||"").trim();
   if (EMAIL_RE.test(s)) return { type:"email", value:s };
@@ -72,7 +71,7 @@ function classifyLoginInput(v){
   return { type:"unknown", value:s };
 }
 
-// “slim” setten: overschrijft ook foute waarden (tel/e-mail in naam/bedrijf)
+// — slim setten: corrigeert ook foute waarden
 function setSmart(sel, val, validator){
   if (!val) return;
   const el = document.querySelector(sel);
@@ -102,7 +101,7 @@ function normalizeForClient(s){
     .trim();
 }
 
-// simpele score of de tekst bij de zoekterm past
+// eenvoudige score voor PDF-match
 function scoreTextMatch(txt, q){
   const t = normalizeForClient(txt);
   const tokens = q.split(" ").filter(Boolean);
@@ -114,7 +113,7 @@ function scoreTextMatch(txt, q){
   return Math.min(1, hits/tokens.length + emailBonus + companyBonus);
 }
 
-// kies de beste kandidaat op basis van PDF-inhoud, anders fallback naar nieuwste
+// kies beste order op basis van PDF-inhoud (anders nieuwste)
 async function pickBestOrderByContent(cands, query){
   const q = normalizeForClient(query);
   for (const c of cands){
@@ -158,7 +157,6 @@ function initSignaturePad() {
     console.warn("SignaturePad of canvas ontbreekt.");
     return;
   }
-
   const resize = () => {
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
     const w = canvas.offsetWidth || canvas.clientWidth || 700;
@@ -169,12 +167,10 @@ function initSignaturePad() {
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     if (signaturePad && signaturePad.isEmpty()) signaturePad.clear();
   };
-
   signaturePad = new SignaturePad(canvas, { backgroundColor: "rgba(255,255,255,1)" });
   window.addEventListener("resize", resize);
   new ResizeObserver(resize).observe(canvas);
   resize();
-
   $("#btnClearSig")?.addEventListener("click", () => signaturePad.clear());
 }
 window.addEventListener("load", initSignaturePad);
@@ -212,7 +208,6 @@ let fpPickup, fpReturn;
     if (!fpReturn || !pick) return;
     const minDay = midnight(pick);
     const minStamp = pick.getTime();
-
     fpReturn.set("disable", [(date) => date < minDay]);
     fpReturn.set("minDate", pick);
     const minReturn = addMinutes(pick, 15);
@@ -574,6 +569,9 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
     return;
   }
 
+  // als #gate per ongeluk een form is, blok submit
+  gate.addEventListener?.("submit", e => e.preventDefault());
+
   function normalizeForClient(s){
     return s.toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -674,48 +672,48 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
       }
     })();
   }
-   /* =========================
-   PDF import uit Drive + parsing
-   ========================= */
-async function afterUnlock() {
-  const url = new URL(location.href);
-  const order = url.searchParams.get("order"); // bijv. "contract-230.pdf"
-  if (!order) return;
-  if (!window.pdfjsLib) { console.warn("pdf.js ontbreekt — kan geen PDF uit Drive lezen."); return; }
 
-  try {
-    toast("Gear-lijst laden…");
-    const pdfAb = await fetchPdfFromDrive(order);
-    const text  = await extractTextFromPdf(pdfAb);
+  /* =========================
+     PDF import uit Drive + parsing
+     ========================= */
+  async function afterUnlock() {
+    const url = new URL(location.href);
+    const order = url.searchParams.get("order");
+    if (!order) return;
+    if (!window.pdfjsLib) { console.warn("pdf.js ontbreekt — kan geen PDF uit Drive lezen."); return; }
 
-    fillRenterFromText(text);
-    fillDatesFromText(text);
+    try {
+      toast("Gear-lijst laden…");
+      const pdfAb = await fetchPdfFromDrive(order);
+      const text  = await extractTextFromPdf(pdfAb);
 
-    const rows  = parseBooqableItems(text);
-    if (Array.isArray(rows) && rows.length) {
-      itemsTbody.innerHTML = "";
-      rows.forEach(addRow);
-      toast(`Gear-lijst geïmporteerd (${rows.length} regels) ✅`);
-    } else {
-      toast("Geen items gevonden in PDF.", true);
+      fillRenterFromText(text);
+      fillDatesFromText(text);
+
+      const rows  = parseBooqableItems(text);
+      if (Array.isArray(rows) && rows.length) {
+        itemsTbody.innerHTML = "";
+        rows.forEach(addRow);
+        toast(`Gear-lijst geïmporteerd (${rows.length} regels) ✅`);
+      } else {
+        toast("Geen items gevonden in PDF.", true);
+      }
+    } catch (e) {
+      console.error(e);
+      toast("Kon PDF niet laden of lezen.", true);
     }
-  } catch (e) {
-    console.error(e);
-    toast("Kon PDF niet laden of lezen.", true);
   }
-}
 
+  // listeners binnen de IIFE
   btn.addEventListener("click", handleGo);
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); handleGo(); }
   });
-})(); // ← BELANGRIJK: sluit de IIFE af!
+})(); // einde IIFE
 
-btn.addEventListener("click", handleGo);
-input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") { e.preventDefault(); handleGo(); }
-});
-
+/* =========================
+   PDF helpers (globaal)
+   ========================= */
 async function fetchPdfFromDrive(filename){
   const res = await fetch(`${DRIVE_ENDPOINT}?file=` + encodeURIComponent(filename), {
     method: "GET",
@@ -725,18 +723,15 @@ async function fetchPdfFromDrive(filename){
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || "download failed");
   const bytes = Uint8Array.from(atob(json.data), c => c.charCodeAt(0));
-  return bytes.buffer; // ArrayBuffer
+  return bytes.buffer;
 }
 
-/* ==== PDF → regels met kolomgaten bewaard ==== */
 async function extractTextFromPdf(arrayBuffer){
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const allLines = [];
-
   for (let p = 1; p <= pdf.numPages; p++){
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
-
     const rows = {};
     for (const it of content.items){
       const t = it.transform;
@@ -744,7 +739,6 @@ async function extractTextFromPdf(arrayBuffer){
       const key = Math.round(y/2)*2;
       (rows[key] ||= []).push({ x, str: it.str, w: it.width || 0 });
     }
-
     const yKeys = Object.keys(rows).map(Number).sort((a,b)=>b-a);
     for (const yk of yKeys){
       const segs = rows[yk].sort((a,b)=>a.x-b.x);
@@ -761,22 +755,11 @@ async function extractTextFromPdf(arrayBuffer){
   return allLines.join("\n");
 }
 
-/* ==== Normalizer ==== */
-function norm(s){
-  return (s||"")
-    .replace(/\u00A0/g, " ")
-    .replace(/[’‘]/g,"'")
-    .replace(/[“”]/g,'"')
-    .replace(/×/g,"x")
-    .replace(/–|—/g,"-")
-    .replace(/\s{2,}/g," ")
-    .trim();
-}
-
-/* ==== Velden uit PDF kop (bedrijf/naam/e-mail/telefoon) ==== */
+/* =========================
+   PDF header → velden (bedrijf/naam/e-mail/telefoon)
+   ========================= */
 function fillRenterFromText(txt) {
   if (!txt) return;
-
   const head = txt.slice(0, 2500);
 
   // Email
@@ -865,7 +848,9 @@ function fillDatesFromText(txt){
   if (mR && fpR) fpR.setDate(fmt(mR[1], mR[2]), true);
 }
 
-/* ==== Sterke multi-pass item parser (Booqable-achtig) ==== */
+/* =========================
+   Sterke multi-pass item parser (Booqable-achtig)
+   ========================= */
 function parseBooqableItems(rawText){
   const rows = [];
   const lines = rawText
@@ -879,18 +864,22 @@ function parseBooqableItems(rawText){
     rows.push({ Item, Serial: (Serial||"").trim(), Qty: Number(Qty)||1, Condition: (Condition||"").trim() });
   };
 
+  // A: "2 x Aputure 600D Pro ... 1 day/dagen"
   for (const line of lines){
     const m = line.match(/^(?<qty>\d+)\s*(?:x|×)?\s+(?<item>.+?)\s+(?:\d+\s*)?(?:day|days|dag|dagen|week|weken)\b/i);
     if (m){ push(m.groups.item, "", m.groups.qty); }
   }
+  // B: "Item … Qty: 2"
   for (const line of lines){
     const m = line.match(/^(?<item>.+?)\s+(?:Qty|Aantal)\s*[: ]\s*(?<qty>\d+)\b/i);
     if (m){ push(m.groups.item, "", m.groups.qty); }
   }
+  // C: zelfde regel met serial
   for (const line of lines){
     const m = line.match(/^(?<qty>\d+)?\s*(?:x|×)?\s*(?<item>.+?)\s+(?:Serial|S\/N|SN|Serienummer|ID|Asset|Barcode)\s*[:# ]\s*(?<sn>[A-Z0-9\-\/._]+)/i);
     if (m){ push(m.groups.item, m.groups.sn, m.groups.qty||1); }
   }
+  // D: tabelachtige regels (kolomgaten ≥3 spaties)
   for (const line of lines){
     const cols = line.split(/\s{3,}/).map(c=>c.trim());
     if (cols.length >= 3){
@@ -901,6 +890,7 @@ function parseBooqableItems(rawText){
       }
     }
   }
+  // E: item op regel 1, "Qty/Aantal: n" op regel 2
   if (!rows.length){
     for (let i=0;i<lines.length-1;i++){
       const l1 = lines[i], l2 = lines[i+1];
@@ -908,6 +898,7 @@ function parseBooqableItems(rawText){
       if (m && !/total|totaal|sum|subtotal/i.test(l1)) push(l1, "", m[1]);
     }
   }
+  // F: serial op volgende regel (eerste hit)
   for (let i=0;i<rows.length;i++){
     if (rows[i].Serial) continue;
     const next = lines.find(l => /(?:Serial|S\/N|SN|Serienummer)\s*[:# ]\s*[A-Z0-9\-\/._]+/i.test(l));
@@ -916,6 +907,7 @@ function parseBooqableItems(rawText){
       if (m) rows[i].Serial = m[1];
     }
   }
+  // G: dedupe op Item|Serial
   const map = new Map();
   for (const r of rows){
     const key = (r.Item.toLowerCase()+"|"+(r.Serial||"").toLowerCase());
