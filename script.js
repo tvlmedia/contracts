@@ -425,7 +425,7 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
 }
 
 /* =========================
-   Gate (naam/wachtwoord)
+   Gate (naam/wachtwoord) – no-reload
    ========================= */
 (async function initGate(){
   const input = document.getElementById("gateName");
@@ -442,60 +442,41 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   const sig   = url.searchParams.get("sig");
   const qName = url.searchParams.get("name");
 
-  // A) geen sig → toon gate en redirect met sig+name
-  if (!sig) {
-    document.body.classList.add("locked");
-    if (qName) input.value = qName;
-
-    btn.addEventListener("click", go);
-    input.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
-
-    async function go(){
-      const name = (input.value || "").trim();
-      if (!name) { input.focus(); return; }
-      const hash = await sha256(name);
-      const next = new URL(location.href);
-      next.searchParams.set("sig",  hash);
-      next.searchParams.set("name", name);
-      location.href = next.toString();
-    }
-    return;
-  }
-
-  // B) sig + name → auto unlock
-  if (sig && qName) {
+  // als er al sig+name zijn, direct checken en unlocken
+  if (sig && qName){
     const ok = (await sha256(qName)) === sig.toLowerCase();
-    if (ok) {
+    if (ok){
       document.body.classList.remove("locked");
-      const nameField = document.querySelector('input[name="renterName"]');
-      if (nameField && !nameField.value) nameField.value = qName.trim();
+      document.querySelector('input[name="renterName"]')?.value ||=
+        qName.trim();
       afterUnlock();
       return;
     }
   }
 
-  // C) sig (zonder geldige name) → vraag en verifieer
+  // anders: gate tonen en bij klik zonder reload unlocken
   document.body.classList.add("locked");
   if (qName) input.value = qName;
 
-  btn.addEventListener("click", check);
-  input.addEventListener("keydown", e => { if (e.key === "Enter") check(); });
+  async function go(){
+    const name = (input.value || "").trim();
+    if (!name){ input.focus(); return; }
 
-  async function check(){
-    const plain = (input.value || "").trim();
-    if (!plain) { input.focus(); return; }
-    const hash = await sha256(plain);
-    if (hash === sig.toLowerCase()) {
-      document.body.classList.remove("locked");
-      const nameField = document.querySelector('input[name="renterName"]');
-      if (nameField && !nameField.value) nameField.value = plain;
-      afterUnlock();
-    } else {
-      err.classList.remove("hidden");
-      setTimeout(() => err.classList.add("hidden"), 2000);
-      input.select();
-    }
+    // hash berekenen, URL bijwerken (zonder reload), en unlocken
+    const hash = await sha256(name);
+    const next = new URL(location.href);
+    next.searchParams.set("sig",  hash);
+    next.searchParams.set("name", name);
+    history.replaceState(null, "", next.toString());
+
+    document.body.classList.remove("locked");
+    const nameField = document.querySelector('input[name="renterName"]');
+    if (nameField && !nameField.value) nameField.value = name;
+    afterUnlock();
   }
+
+  btn.addEventListener("click", go);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
 })();
 
 /* =========================
