@@ -59,54 +59,7 @@ function toast(msg, isError=false){
 }
 
 // ===== Date/Time pickers (Flatpickr) =====
-let fpPickup, fpReturn;
 
-(function initDateTimePickers(){
-  if (!window.flatpickr) return;
-
-  // rond "nu" af op 15 min
-  const now = new Date();
-  const rounded = new Date(now);
-  rounded.setMinutes(Math.ceil(rounded.getMinutes()/15)*15, 0, 0);
-
-  const common = {
-    enableTime: true,
-    dateFormat: "d-m-Y, H:i",
-    time_24hr: true,
-    allowInput: false,     // niet handmatig intypen
-    disableMobile: true    // forceer Flatpickr i.p.v. native mobile picker
-  };
-
-  fpPickup = flatpickr("#pickupDateTime", {
-    ...common,
-    defaultDate: rounded,
-    minDate: rounded,
-    onChange: syncReturnBounds,
-    onReady:  syncReturnBounds
-  });
-
-  fpReturn = flatpickr("#returnDateTime", {
-    ...common,
-    minDate: rounded
-  });
-
-  function addMinutes(d, mins){ const x = new Date(d); x.setMinutes(x.getMinutes()+mins,0,0); return x; }
-
-  // Zorg dat retour ≥ pickup (+15 min) & nooit verleden
-  function syncReturnBounds(){
-    const pick = fpPickup.selectedDates[0] || rounded;
-
-    // lock de kalender aan de onderkant
-    fpReturn.set("minDate", pick);
-
-    // als huidige retour kleiner is dan minReturn -> zet 'm op minReturn
-    const currentReturn = fpReturn.selectedDates[0];
-    const minReturn     = addMinutes(pick, 15);
-    if (!currentReturn || currentReturn < minReturn) {
-      fpReturn.setDate(minReturn, false);
-    }
-  }
-})();
 
 // ===== Locaties dropdowns =====
 const ADDRESS_OFFICE = "Beek en Donk (Donkersvoorstestraat 3)";
