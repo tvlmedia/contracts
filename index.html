@@ -17,6 +17,9 @@
   <script defer src="script.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <!-- Flatpickr voor kalender/klok -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </head>
 <body>
   <div class="container">
@@ -104,9 +107,10 @@
 </body>
 </html>
 <section>
+  <section>
   <h2>Periode</h2>
   <div class="grid">
-    <!-- DateTime pickers -->
+    <!-- Date/Time pickers -->
     <label>Ophaal datum/tijd*
       <input type="text" name="pickup" id="pickupDateTime" required />
     </label>
@@ -114,34 +118,33 @@
       <input type="text" name="return" id="returnDateTime" required />
     </label>
 
-    <!-- Pickup location -->
+    <!-- Locatie ophalen -->
     <label>Locatie ophalen
       <select id="pickupMode">
         <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
-        <option value="delivery">Bezorging (adres invullen)</option>
+        <option value="delivery">Brengen (adres invullen)</option>
       </select>
     </label>
     <div id="pickupDeliveryWrap" style="display:none">
-      <label>Adres voor bezorging (ophalen)
+      <label>Adres voor brengen (ophalen)
         <input type="text" id="pickupDeliveryInput" placeholder="Straat + nr, plaats" />
       </label>
     </div>
-    <!-- verborgen ‘waarde’ die naar PDF gaat -->
+    <!-- Dit is de echte waarde die naar de PDF gaat -->
     <input type="hidden" name="pickupLocation" id="pickupLocation" value="Beek en Donk (Donkersvoorstestraat 3)" />
 
-    <!-- Return location -->
+    <!-- Locatie retour -->
     <label>Locatie retour
       <select id="returnMode">
         <option value="office" selected>Beek en Donk (Donkersvoorstestraat 3)</option>
-        <option value="delivery">Bezorging (adres invullen)</option>
+        <option value="delivery">Brengen (adres invullen)</option>
       </select>
     </label>
     <div id="returnDeliveryWrap" style="display:none">
-      <label>Adres voor bezorging (retour)
+      <label>Adres voor brengen (retour)
         <input type="text" id="returnDeliveryInput" placeholder="Straat + nr, plaats" />
       </label>
     </div>
-    <!-- verborgen ‘waarde’ die naar PDF gaat -->
     <input type="hidden" name="returnLocation" id="returnLocation" value="Beek en Donk (Donkersvoorstestraat 3)" />
   </div>
 </section>
