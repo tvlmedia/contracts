@@ -27,3 +27,21 @@ button:hover { filter:brightness(1.05); }
 .actions { display:flex; justify-content:flex-end; }
 footer { color:var(--muted); text-align:center; margin:24px 0 40px; }
 @media (max-width:720px) { .grid { grid-template-columns:1fr; } }
+/* Selects in dezelfde stijl als inputs */
+select{
+  background:#0e1116;
+  border:1px solid #2a313b;
+  color:var(--ink);
+  padding:10px 12px;
+  border-radius:10px;
+  outline:none;
+}
+select:focus{
+  border-color:var(--acc);
+  box-shadow:0 0 0 3px rgb(47 125 240 / .2);
+}
+
+/* Flatpickr dark tweak (optioneel, subtiel) */
+.flatpickr-calendar {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
