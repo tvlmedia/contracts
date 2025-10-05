@@ -885,6 +885,9 @@ function fillRenterFromText(txt) {
   setSmart('input[name="renterName"]', name,   v => !EMAIL_RE.test(v));
   setSmart('input[name="company"]',    company,v => !EMAIL_RE.test(v));
 }
+function fillDatesFromText(txt){
+  if (!txt) return;
+
   // NL/EN datum: 31-12-2025 of 31/12/2025; tijd 08:30 of 8:30
   const d = "(\\d{2}[-\\/]\\d{2}[-\\/]\\d{4})";
   const t = "(\\d{1,2}:\\d{2})";
