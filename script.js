@@ -292,3 +292,50 @@ async function getIP() {
     return await r.json();
   } catch (_) { return {}; }
 }
+// ============ DATE/TIME PICKERS ============
+(function initDateTimePickers(){
+  if (!window.flatpickr) return; // lib nog niet geladen? dan sla je over.
+  const now = new Date();
+  const rounded = new Date(now.getTime());
+  rounded.setMinutes(Math.ceil(rounded.getMinutes() / 15) * 15, 0, 0);
+
+  const common = { enableTime:true, dateFormat:"d-m-Y, H:i", time_24hr:true };
+
+  flatpickr("#pickupDateTime", { ...common, defaultDate: rounded });
+  flatpickr("#returnDateTime", { ...common });
+})();
+
+// ============ DROPDOWNS (LOCATIES) ============
+const ADDRESS_OFFICE = "Beek en Donk (Donkersvoorstestraat 3)";
+
+function syncLocation(mode){
+  const modeSel = document.getElementById(mode + "Mode");
+  const deliveryWrap = document.getElementById(mode + "DeliveryWrap");
+  const deliveryInput = document.getElementById(mode + "DeliveryInput");
+  const hiddenField = document.getElementById(mode + "Location");
+
+  if (!modeSel || !deliveryWrap || !deliveryInput || !hiddenField) return;
+
+  if (modeSel.value === "delivery"){
+    deliveryWrap.style.display = "";
+    hiddenField.value = (deliveryInput.value || "").trim() || "Brengen – adres nog invullen";
+  } else {
+    deliveryWrap.style.display = "none";
+    hiddenField.value = ADDRESS_OFFICE;
+  }
+}
+
+// events koppelen + initialiseren
+["pickup","return"].forEach(m=>{
+  const sel = document.getElementById(m + "Mode");
+  const inp = document.getElementById(m + "DeliveryInput");
+  if (sel) sel.addEventListener("change", ()=>syncLocation(m));
+  if (inp) ["input","blur"].forEach(ev=>inp.addEventListener(ev, ()=>syncLocation(m)));
+  syncLocation(m);
+});
+
+// vóór PDF maken alles synchroniseren
+form.addEventListener("submit", () => {
+  syncLocation("pickup");
+  syncLocation("return");
+});
