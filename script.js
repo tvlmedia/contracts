@@ -65,6 +65,19 @@ function syncLocation(mode){
   if (sel) sel.addEventListener("change", ()=>syncLocation(m));
   if (inp) ["input","blur"].forEach(ev=>inp.addEventListener(ev, ()=>syncLocation(m)));
   syncLocation(m);
+  if (modeSel.value === "delivery"){
+  deliveryWrap.style.display = "block";
+  deliveryInput.disabled = false;
+  deliveryInput.required = true;          // <-- nieuw
+  hiddenField.value = (deliveryInput.value || "").trim() || "Brengen – adres nog invullen";
+  setTimeout(()=> deliveryInput.focus(), 0);
+} else {
+  deliveryWrap.style.display = "none";
+  deliveryInput.disabled = true;
+  deliveryInput.required = false;         // <-- nieuw
+  deliveryInput.value = "";
+  hiddenField.value = ADDRESS_OFFICE;
+}
 });
 form.addEventListener("submit", () => { syncLocation("pickup"); syncLocation("return"); });
 
