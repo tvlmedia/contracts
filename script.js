@@ -41,43 +41,31 @@ const ADDRESS_OFFICE = "Beek en Donk (Donkersvoorstestraat 3)";
 
 function syncLocation(mode){
   const modeSel = document.getElementById(mode + "Mode");
-  const deliveryWrap = document.getElementById(mode + "DeliveryWrap");
-  const deliveryInput = document.getElementById(mode + "DeliveryInput");
-  const hiddenField = document.getElementById(mode + "Location");
-  if (!modeSel || !deliveryWrap || !deliveryInput || !hiddenField) return;
+  const wrap = document.getElementById(mode + "DeliveryWrap");
+  const input = document.getElementById(mode + "DeliveryInput");
+  const hidden = document.getElementById(mode + "Location");
+  if (!modeSel || !wrap || !input || !hidden) return;
 
-  if (modeSel.value === "delivery"){
-    deliveryWrap.style.display = "block";
-    deliveryInput.disabled = false;
-    hiddenField.value = (deliveryInput.value || "").trim() || "Brengen – adres nog invullen";
-    // kleine delay zodat de browser eerst toont, dan focus
-    setTimeout(()=> deliveryInput.focus(), 0);
+  const isDelivery = modeSel.value === "delivery";
+
+  wrap.classList.toggle("hidden", !isDelivery);
+  input.disabled = !isDelivery;
+  input.required = isDelivery;
+
+  if (isDelivery){
+    hidden.value = (input.value || "").trim() || "Brengen – adres nog invullen";
+    requestAnimationFrame(()=> input.focus());
   } else {
-    deliveryWrap.style.display = "none";
-    deliveryInput.disabled = true;
-    deliveryInput.value = "";
-    hiddenField.value = ADDRESS_OFFICE;
+    input.value = "";
+    hidden.value = ADDRESS_OFFICE;
   }
 }
 ["pickup","return"].forEach(m=>{
   const sel = document.getElementById(m + "Mode");
   const inp = document.getElementById(m + "DeliveryInput");
   if (sel) sel.addEventListener("change", ()=>syncLocation(m));
-  if (inp) ["input","blur"].forEach(ev=>inp.addEventListener(ev, ()=>syncLocation(m)));
-  syncLocation(m);
-  if (modeSel.value === "delivery"){
-  deliveryWrap.style.display = "block";
-  deliveryInput.disabled = false;
-  deliveryInput.required = true;          // <-- nieuw
-  hiddenField.value = (deliveryInput.value || "").trim() || "Brengen – adres nog invullen";
-  setTimeout(()=> deliveryInput.focus(), 0);
-} else {
-  deliveryWrap.style.display = "none";
-  deliveryInput.disabled = true;
-  deliveryInput.required = false;         // <-- nieuw
-  deliveryInput.value = "";
-  hiddenField.value = ADDRESS_OFFICE;
-}
+  if (inp) inp.addEventListener("input", ()=>syncLocation(m));
+  syncLocation(m); // initial state
 });
 form.addEventListener("submit", () => { syncLocation("pickup"); syncLocation("return"); });
 
