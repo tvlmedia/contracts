@@ -212,3 +212,10 @@ footer{ color:var(--muted); text-align:center; margin:24px 0 40px; }
   .gate, .actions, .hint{ display:none !important; }
   section{ border-color:#ddd; }
 }
+button.small {
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  opacity: .85;
+}
+button.small:hover { opacity: 1; }
