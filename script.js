@@ -538,27 +538,35 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
   const qName = url.searchParams.get("name");
 
   async function unlockWith(name) {
-    // zet (of ververs) sig+name in URL
-    const hash = await sha256(name);
-    const next = new URL(location.href);
-    next.searchParams.set("sig",  hash);
-    next.searchParams.set("name", name);
-    history.replaceState(null, "", next.toString());
+  // zet (of ververs) sig+name in URL
+  const hash = await sha256(name);
+  const next = new URL(location.href);
+  next.searchParams.set("sig", hash);
+  next.searchParams.set("name", name);
+  history.replaceState(null, "", next.toString());
 
-    // overlay sluiten
-    document.body.classList.remove("locked");
+  // overlay sluiten
+  document.body.classList.remove("locked");
 
-    // naam invullen + focus
-    const nameField = document.querySelector('input[name="renterName"]');
+  // slimme naamverwerking
+  const looksLikePerson = /^[A-Z][a-z]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?$/.test(name.trim());
+  const nameField = document.querySelector('input[name="renterName"]');
+  const companyField = document.querySelector('input[name="company"]');
+
+  if (looksLikePerson) {
     if (nameField && !nameField.value) nameField.value = name.trim();
-    (nameField || document.querySelector('input,select,textarea,button'))?.focus?.();
-
-    // signature canvas natrappen
-    setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
-
-    // indien ?order=... aanwezig is -> importeren
-    try { await afterUnlock(); } catch (e) { console.error(e); }
+  } else {
+    if (companyField && !companyField.value) companyField.value = name.trim();
   }
+
+  (nameField || companyField || document.querySelector('input,select,textarea,button'))?.focus?.();
+
+  // signature canvas natrappen
+  setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+
+  // indien ?order=... aanwezig is -> importeren
+  try { await afterUnlock(); } catch (e) { console.error(e); }
+}
 
   // 1) Auto-unlock als sig+name al kloppen
   if (sig && qName && (await sha256(qName)) === sig.toLowerCase()) {
