@@ -588,92 +588,128 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
   }
 
   const url   = new URL(location.href);
-const sig   = url.searchParams.get("sig");
-const qName = url.searchParams.get("name");
+  const sig   = url.searchParams.get("sig");
+  const qName = url.searchParams.get("name");
 
-async function unlockWith(inputValue) {
-  // URL bijwerken
-  const hash = await sha256(inputValue);
-  const next = new URL(location.href);
-  next.searchParams.set("sig",  hash);
-  next.searchParams.set("name", inputValue);
-  history.replaceState(null, "", next.toString());
+  async function unlockWith(inputValue) {
+    // URL bijwerken
+    const hash = await sha256(inputValue);
+    const next = new URL(location.href);
+    next.searchParams.set("sig",  hash);
+    next.searchParams.set("name", inputValue);
+    history.replaceState(null, "", next.toString());
 
-  // overlay sluiten
-  document.body.classList.remove("locked");
+    // overlay sluiten
+    document.body.classList.remove("locked");
 
-  // juiste veld invullen o.b.v. gate-invoer
-  const kind = classifyLoginInput(inputValue);
-  if (kind.type === "email") {
-    setSmart('input[name="email"]', kind.value, v => EMAIL_RE.test(v));
-  } else if (kind.type === "phone") {
-    setSmart('input[name="phone"]', kind.value, v => NL_PHONE_RE.test(v.replace(/\s+/g,"").replace(/-/g,"")));
-  } else if (kind.type === "person") {
-    setSmart('input[name="renterName"]', kind.value, v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
-  } else { // company of unknown -> bedrijf
-    setSmart('input[name="company"]', kind.value, v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
+    // juiste veld invullen o.b.v. gate-invoer
+    const kind = classifyLoginInput(inputValue);
+    if (kind.type === "email") {
+      setSmart('input[name="email"]', kind.value, v => EMAIL_RE.test(v));
+    } else if (kind.type === "phone") {
+      setSmart('input[name="phone"]', kind.value, v => NL_PHONE_RE.test(v.replace(/\s+/g,"").replace(/-/g,"")));
+    } else if (kind.type === "person") {
+      setSmart('input[name="renterName"]', kind.value, v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
+    } else { // company of unknown -> bedrijf
+      setSmart('input[name="company"]', kind.value, v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
+    }
+
+    (document.querySelector('input[name="renterName"]')
+      || document.querySelector('input[name="company"]')
+      || document.querySelector('input,select,textarea,button'))?.focus?.();
+
+    // signature canvas natrappen
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+
+    // als er al ?order= in de URL staat, direct importeren
+    try { await afterUnlock(); } catch (e) { console.error(e); }
   }
 
-  (document.querySelector('input[name="renterName"]')
-    || document.querySelector('input[name="company"]')
-    || document.querySelector('input,select,textarea,button'))?.focus?.();
-
-  // signature canvas natrappen
-  setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
-
-  // als er al ?order= in de URL staat, direct importeren
-  try { await afterUnlock(); } catch (e) { console.error(e); }
-}
-
-// 1) Auto-unlock als sig+name al kloppen
-if (sig && qName && (await sha256(qName)) === sig.toLowerCase()) {
-  await unlockWith(qName);
-  return;
-}
-
-// 2) Gate tonen
-document.body.classList.add("locked");
-if (qName) input.value = qName;
-
-// 3) Doorgaan: eerst ontgrendelen, daarna asynchroon resolven
-async function handleGo() {
-  const typed = (input.value || "").trim();
-  if (!typed) {
-    input.focus();
-    err?.classList.remove("hidden");
-    setTimeout(() => err?.classList.add("hidden"), 1500);
+  // 1) Auto-unlock als sig+name al kloppen
+  if (sig && qName && (await sha256(qName)) === sig.toLowerCase()) {
+    await unlockWith(qName);
     return;
   }
 
-  // altijd uit de overlay
-  await unlockWith(typed);
+  // 2) Gate tonen
+  document.body.classList.add("locked");
+  if (qName) input.value = qName;
 
-  // nu proberen te resolven & importeren zonder de UI te blokkeren
-  (async () => {
-    try {
-      toast("Zoeken naar jouw order…");
-      const q = normalizeForClient(typed);
-      const r = await fetch(RESOLVE_ENDPOINT + "?search=" + encodeURIComponent(q) + "&limit=50");
-      if (!r.ok) throw new Error("resolve HTTP " + r.status);
-      const js = await r.json();
-
-      if (js.ok && Array.isArray(js.items) && js.items.length) {
-        const order = await pickBestOrderByContent(js.items, typed);
-        if (order) {
-          const next = new URL(location.href);
-          next.searchParams.set("order", order);
-          history.replaceState(null, "", next.toString());
-          await afterUnlock();
-          return;
-        }
-      }
-      toast(`Geen geschikte PDF gevonden — je kunt de velden handmatig invullen.`, true);
-    } catch (e) {
-      console.error(e);
-      toast("Zoeken mislukt — je kunt de velden handmatig invullen.", true);
+  // 3) Doorgaan: eerst ontgrendelen, daarna asynchroon resolven
+  async function handleGo() {
+    const typed = (input.value || "").trim();
+    if (!typed) {
+      input.focus();
+      err?.classList.remove("hidden");
+      setTimeout(() => err?.classList.add("hidden"), 1500);
+      return;
     }
-  })();
+
+    // altijd uit de overlay
+    await unlockWith(typed);
+
+    // nu proberen te resolven & importeren zonder de UI te blokkeren
+    (async () => {
+      try {
+        toast("Zoeken naar jouw order…");
+        const q = normalizeForClient(typed);
+        const r = await fetch(RESOLVE_ENDPOINT + "?search=" + encodeURIComponent(q) + "&limit=50");
+        if (!r.ok) throw new Error("resolve HTTP " + r.status);
+        const js = await r.json();
+
+        if (js.ok && Array.isArray(js.items) && js.items.length) {
+          const order = await pickBestOrderByContent(js.items, typed);
+          if (order) {
+            const next = new URL(location.href);
+            next.searchParams.set("order", order);
+            history.replaceState(null, "", next.toString());
+            await afterUnlock();
+            return;
+          }
+        }
+        toast(`Geen geschikte PDF gevonden — je kunt de velden handmatig invullen.`, true);
+      } catch (e) {
+        console.error(e);
+        toast("Zoeken mislukt — je kunt de velden handmatig invullen.", true);
+      }
+    })();
+  }
+   /* =========================
+   PDF import uit Drive + parsing
+   ========================= */
+async function afterUnlock() {
+  const url = new URL(location.href);
+  const order = url.searchParams.get("order"); // bijv. "contract-230.pdf"
+  if (!order) return;
+  if (!window.pdfjsLib) { console.warn("pdf.js ontbreekt — kan geen PDF uit Drive lezen."); return; }
+
+  try {
+    toast("Gear-lijst laden…");
+    const pdfAb = await fetchPdfFromDrive(order);
+    const text  = await extractTextFromPdf(pdfAb);
+
+    fillRenterFromText(text);
+    fillDatesFromText(text);
+
+    const rows  = parseBooqableItems(text);
+    if (Array.isArray(rows) && rows.length) {
+      itemsTbody.innerHTML = "";
+      rows.forEach(addRow);
+      toast(`Gear-lijst geïmporteerd (${rows.length} regels) ✅`);
+    } else {
+      toast("Geen items gevonden in PDF.", true);
+    }
+  } catch (e) {
+    console.error(e);
+    toast("Kon PDF niet laden of lezen.", true);
+  }
 }
+
+  btn.addEventListener("click", handleGo);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); handleGo(); }
+  });
+})(); // ← BELANGRIJK: sluit de IIFE af!
 
 btn.addEventListener("click", handleGo);
 input.addEventListener("keydown", (e) => {
