@@ -667,32 +667,69 @@ function norm(s){
 }
 
 /* ==== Autofill helpers ==== */
-function fillDatesFromText(txt){
-  const pick = /Pickup\s+(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2})/i.exec(txt);
-  const ret  = /Return\s+(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2})/i.exec(txt);
-  const fmt = (d, t) => `${d}, ${t}`;
-  const fpP = document.getElementById("pickupDateTime")?._flatpickr;
-  const fpR = document.getElementById("returnDateTime")?._flatpickr;
-  if (pick && fpP) fpP.setDate(fmt(pick[1], pick[2]), true);
-  if (ret  && fpR) fpR.setDate(fmt(ret[1],  ret[2]),  true);
-}
-
 function fillRenterFromText(txt){
-  const email = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.exec(txt);
-  const emailEl = document.querySelector('input[name="email"]');
-  if (email && emailEl) emailEl.value = email[0];
+  if (!txt) return;
 
+  // 1) Neem vooral de kop – daar staat klantinfo meestal
+  const head = txt.slice(0, 1500);
+
+  // 2) E-mail
+  const emailRe = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+  const emailMatch = emailRe.exec(head);
+  const email = emailMatch ? emailMatch[0] : "";
+
+  // 3) Regels rondom de e-mail (±5 regels)
+  let around = head;
+  if (emailMatch) {
+    const i = emailMatch.index;
+    const start = Math.max(0, i - 400);
+    const end = Math.min(head.length, i + 400);
+    around = head.slice(start, end);
+  }
+  const lines = around.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+
+  let company = "";
   let name = "";
-  if (email) {
-    const before = txt.slice(0, email.index).split(/\r?\n/).pop() || "";
-    if (before && !/totaal|btw|insurance|verze/i.test(before)) name = before.trim();
+
+  // 3a) Via labels
+  for (const L of lines){
+    if (/^(company|bedrijf|organisation|organization)\b[:\s]/i.test(L)) {
+      const v = L.replace(/^(company|bedrijf|organisation|organization)\b[:\s]*/i,"").trim();
+      if (v) { company = v; break; }
+    }
   }
-  if (!name) {
-    const nm = /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/.exec(txt);
-    if (nm) name = nm[1];
+
+  // 3b) Heuristiek voor bedrijfsnaam (ALL CAPS, korte string)
+  if (!company){
+    const cand = lines.find(s => /^[A-Z0-9&/'\-. ]{3,}$/.test(s) && s.split(" ").length <= 6);
+    if (cand) company = cand.replace(/\s{2,}/g," ").trim();
   }
-  const nameEl = document.querySelector('input[name="renterName"]');
-  if (name && nameEl) nameEl.value = name;
+
+  // 3c) Naam (met Nederlandse tussenvoegsels)
+  const nameRe = /([A-Z][a-z]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/;
+  for (const L of lines) {
+    const m = nameRe.exec(L);
+    if (m && !/Company|Bedrijf|Invoice|Factuur|Project/i.test(L)) {
+      name = m[1].trim();
+      break;
+    }
+  }
+
+  // 3d) Fallback: regel net vóór de e-mail
+  if (!name && emailMatch){
+    const before = head.slice(0, emailMatch.index).split(/\r?\n/).pop() || "";
+    const m = nameRe.exec(before);
+    if (m) name = m[1].trim();
+  }
+
+  // 4) Velden invullen (alleen als leeg)
+  const emailEl   = document.querySelector('input[name="email"]');
+  const nameEl    = document.querySelector('input[name="renterName"]');
+  const companyEl = document.querySelector('input[name="company"]');
+
+  if (email   && emailEl   && !emailEl.value)   emailEl.value   = email;
+  if (name    && nameEl    && !nameEl.value)    nameEl.value    = name;
+  if (company && companyEl && !companyEl.value) companyEl.value = company;
 }
 
 /* ==== Sterke multi-pass item parser ==== */
