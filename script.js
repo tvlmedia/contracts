@@ -805,18 +805,35 @@ function fillRenterFromText(txt) {
 
   // --- helpers
   const EMAIL = EMAIL_RE;
-  const ANY_NL_MOBILE = /(?:(?:\+31|0031|0)\s*6(?:[\s-]?\d){8})/; // 06 / +31 6 ...
-  const ANY_NL_PHONE  = /(?:(?:\+31|0031|0)\s*(?:\d[\s-]?){8,10}\d)/; // ook vaste lijnen
+  const ANY_NL_MOBILE = /(?:(?:\+31|0031|0)\s*6(?:[\s-]?\d){8})/;
+  const ANY_NL_PHONE  = /(?:(?:\+31|0031|0)\s*(?:\d[\s-]?){8,10}\d)/;
   const POSTCODE_NL   = /\b\d{4}\s?[A-Z]{2}\b/;
-  const STREET_WORDS  = /\b(straat|laan|weg|gracht|plein|boulevard|dreef|kade|kade|avenue|avenida|road|rd\.?|lane|ln\.?|drive|dr\.?)\b/i;
+  const STREET_WORDS  = /\b(straat|laan|weg|gracht|plein|boulevard|dreef|kade|avenue|avenida|road|rd\.?|lane|ln\.?|drive|dr\.?)\b/i;
   const CAP_NAME_RE   = /^([A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+){0,2})$/;
   const COMPANY_HINTS = /\b(BV|B\.V\.|N\.?V\.?|VOF|Holding|Group|Studio|Media|Productions?|Creative|Events?)\b/i;
 
   const isEmail    = s => EMAIL.test(s);
   const isPhone    = s => ANY_NL_PHONE.test(s);
-  const isAddress  = s => POSTCODE_NL.test(s) || STREET_WORDS.test(s) || /\d/.test(s) && /\b\d{1,4}\b/.test(s);
-  const looksName  = s => CAP_NAME_RE.test(s) && !isAddress(s) && !isEmail(s) && !isPhone(s);
-  const looksCo    = s => (COMPANY_HINTS.test(s) || /[A-Z]{2,}/.test(s)) && !isAddress(s) && !isEmail(s) && !isPhone(s);
+  const isPostcode = s => POSTCODE_NL.test(s);
+  const hasStreet  = s => STREET_WORDS.test(s);
+  const isAddress  = s => isPostcode(s) || hasStreet(s) || /\d/.test(s) && /\b\d{1,4}\b/.test(s);
+  const looksName  = s => CAP_NAME_RE.test(s) && !/\d/.test(s);
+  const looksCo    = s => (COMPANY_HINTS.test(s) || /[A-Z]{2,}/.test(s)) && !/^\+?\d/.test(s);
+
+  // knip adresstuk af aan het eind van een regel ("Naam ... Donkersvoorstestraat 3")
+  function stripAddressTail(s){
+    if (!s) return s;
+    // knip vanaf postcode of straatwoord
+    const m1 = s.match(POSTCODE_NL);
+    if (m1) return s.slice(0, m1.index).trim();
+    const m2 = s.match(STREET_WORDS);
+    if (m2) return s.slice(0, m2.index).trim();
+    return s;
+  }
+  // schoon kandidaat op
+  function sanitizeCandidate(s){
+    return s.replace(/\s{2,}/g, ' ').replace(/[,\s;]+$/,'').trim();
+  }
 
   // --- e-mail als anker
   const emailMatch = head.match(EMAIL);
@@ -843,50 +860,63 @@ function fillRenterFromText(txt) {
 
   // --- bedrijf/naam uit labels
   const byLabel = (re) => ((re.exec(head) || [,""])[1] || "").trim();
-  let company = byLabel(/(?:Company|Bedrijf|Organisation|Organization)\s*[:\s]*([^\n\r]{1,80})/i);
-  let name    = byLabel(/(?:Name|Naam|Contact ?persoon|Contact)\s*[:\s]*([^\n\r]{1,80})/i);
+  let company = stripAddressTail(byLabel(/(?:Company|Bedrijf|Organisation|Organization)\s*[:\s]*([^\n\r]{1,120})/i));
+  let name    = stripAddressTail(byLabel(/(?:Name|Naam|Contact ?persoon|Contact)\s*[:\s]*([^\n\r]{1,120})/i));
 
-  // --- zo niet gelabeld: pak compacte blok boven e-mail en filter adres/telefoon
+  // labelwaarden opschonen (geen telefoon/adres)
+  if (isPhone(company) || isAddress(company)) company = "";
+  if (isPhone(name)    || isAddress(name))    name = "";
+
+  // --- geen labels? pak blok boven e-mail
   if ((!company || !name) && emailMatch) {
     const i = emailMatch.index;
-    const before = head.slice(0, i).split(/\r?\n/).map(s => s.replace(/\u00A0/g," ").trim()).filter(Boolean);
+    const before = head.slice(0, i).split(/\r?\n/)
+      .map(s => sanitizeCandidate(stripAddressTail(s.replace(/\u00A0/g," "))))
+      .filter(Boolean);
+
+    // neem compact blok tot lege regel
     const block = [];
     for (let k = before.length - 1; k >= 0 && block.length < 8; k--) {
-      if (!before[k]) break;
-      block.unshift(before[k]);
+      const L = before[k];
+      if (!L) break;
+      block.unshift(L);
       if (/^\s*$/.test(before[k-1] || "")) break;
     }
-    const cleaned = block
-      .map(s => s.replace(/^(company|bedrijf|organisation|organization|adres|address)\s*:?\s*/i, ""))
-      .filter(s => s && !isEmail(s) && !isPhone(s) && !isAddress(s) && !/€|EUR|BTW|Invoice|Factuur/i.test(s));
 
-    // hard candidates
+    const cleaned = block.filter(s =>
+      !isEmail(s) && !isPhone(s) && !isAddress(s) &&
+      !/€|EUR|BTW|Invoice|Factuur|KvK|VAT/i.test(s)
+    );
+
+    // harde picks
     const nameCand = cleaned.find(looksName);
     const coCand   = cleaned.find(looksCo);
 
     if (!name && nameCand) name = nameCand;
     if (!company && coCand) company = coCand;
 
-    // fallback: eerste twee nette regels
-    if ((!name || !company) && cleaned.length >= 2) {
-      const [a,b] = cleaned;
-      if (!name && looksName(a)) name = a;
-      if (!company && looksCo(a)) company = a;
-      if (!name && looksName(b)) name = b;
-      if (!company && looksCo(b)) company = b;
+    // fallback: kies eerste twee zinnige regels, met voorkeur: naam zonder cijfers
+    if ((!name || !company) && cleaned.length) {
+      for (const line of cleaned) {
+        if (!name && looksName(line)) { name = line; continue; }
+        if (!company && looksCo(line)) { company = line; continue; }
+      }
     }
-    // laatste fallback: één regel → als het op naam lijkt, naam; anders bedrijf
     if (!name && !company && cleaned.length === 1) {
-      if (looksName(cleaned[0])) name = cleaned[0];
-      else company = cleaned[0];
+      const only = cleaned[0];
+      if (looksName(only)) name = only; else company = only;
     }
   }
 
-  // --- zet slim (overschrijft duidelijk foute inhoud)
+  // laatste safeguard: niets met cijfers als naam, niets dat met + of cijfer begint als bedrijf
+  if (/\d/.test(name)) name = name.replace(/\d.*$/, '').trim();
+  if (/^[+\d]/.test(company)) company = "";
+
+  // --- zet slim (mag foute inhoud overschrijven)
   setSmart('input[name="email"]',      email,  v => EMAIL_RE.test(v));
   setSmart('input[name="phone"]',      phone,  v => NL_PHONE_RE.test(v.replace(/\s+/g,"").replace(/-/g,"")));
-  setSmart('input[name="renterName"]', name,   v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
-  setSmart('input[name="company"]',    company,v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
+  setSmart('input[name="renterName"]', name,   v => v && !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v) && !/\d/.test(v));
+  setSmart('input[name="company"]',    company,v => v && !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
 }
 function fillDatesFromText(txt){
   if (!txt) return;
