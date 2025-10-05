@@ -666,7 +666,7 @@ async function fetchPdfFromDrive(filename){
   return bytes.buffer; // ArrayBuffer
 }
 
-/* ==== NIEUW: PDF → nette regels op basis van Y ==== */
+/* ==== PDF → regels met kolomgaten bewaard ==== */
 async function extractTextFromPdf(arrayBuffer){
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const allLines = [];
@@ -675,22 +675,36 @@ async function extractTextFromPdf(arrayBuffer){
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
 
+    // groepeer tekstitems per Y-rij
     const rows = {};
     for (const it of content.items){
       const t = it.transform;
       const x = t[4], y = t[5];
-      const key = Math.round(y/2)*2; // snap y om ruis te dempen
-      (rows[key] ||= []).push({ x, str: it.str });
+      const key = Math.round(y/2)*2;         // Y-snapping
+      (rows[key] ||= []).push({ x, str: it.str, w: it.width || 0 });
     }
 
     const yKeys = Object.keys(rows).map(Number).sort((a,b)=>b-a);
     for (const yk of yKeys){
-      const parts = rows[yk].sort((a,b)=>a.x-b.x).map(o=>o.str);
-      allLines.push(parts.join(" "));
+      const segs = rows[yk].sort((a,b)=>a.x-b.x);
+      let line = "";
+      for (let i=0;i<segs.length;i++){
+        const cur = segs[i];
+        line += (i===0 ? "" : gap(segs[i-1], cur)) + cur.str;
+      }
+      allLines.push(line.replace(/\u00A0/g," ").replace(/\s{2,}/g," ").trim());
     }
     allLines.push("");
   }
   return allLines.join("\n");
+
+  // voeg extra spaties toe als het X-gat groot is (houd kolommen zichtbaar)
+  function gap(prev, cur){
+    const dx = cur.x - (prev.x + (prev.w || 0));
+    if (dx > 40) return "    ";   // groot gat → 4 spaties
+    if (dx > 20) return "  ";     // medium → 2 spaties
+    return " ";                   // klein → 1 spatie
+  }
 }
 
 /* ==== Normalizer ==== */
@@ -771,59 +785,72 @@ function fillRenterFromText(txt){
   if (company && companyEl && !companyEl.value) companyEl.value = company;
 }
 
-/* ==== Sterke multi-pass item parser ==== */
+/* ==== Sterke multi-pass item parser (Booqable-achtig) ==== */
 function parseBooqableItems(rawText){
   const rows = [];
-  const lines = rawText.split(/\n+/).map(norm).filter(Boolean);
+  const lines = rawText
+    .split(/\n+/)
+    .map(s => s.replace(/\u00A0/g," ").replace(/\s{2,}/g," ").trim())
+    .filter(Boolean);
 
   const push = (Item, Serial="", Qty=1, Condition="")=>{
     if (!Item) return;
-    rows.push({
-      Item: Item.replace(/\s+€.*$/,"").trim(),
-      Serial: (Serial||"").trim(),
-      Qty: Number(Qty)||1,
-      Condition: (Condition||"").trim()
-    });
+    // strip prijs- of eurostaarten
+    Item = Item.replace(/\s+€.*$/,"").replace(/\s+EUR.*$/i,"").trim();
+    rows.push({ Item, Serial: (Serial||"").trim(), Qty: Number(Qty)||1, Condition: (Condition||"").trim() });
   };
 
-  // A) "qty x item ... day(s)/dag(en)/week(en)"
+  // — A: "2 x Aputure 600D Pro ... 1 day/dagen/weken"
   for (const line of lines){
-    const m = line.match(/^(?<qty>\d+)\s*(?:x)?\s+(?<item>.+?)\s+(?:(?:\d+\s*)?(?:day|days|dag|dagen|week|weken)\b)/i);
-    if (m){ push(m.groups.item, "", m.groups.qty); continue; }
+    const m = line.match(/^(?<qty>\d+)\s*(?:x|×)?\s+(?<item>.+?)\s+(?:\d+\s*)?(?:day|days|dag|dagen|week|weken)\b/i);
+    if (m){ push(m.groups.item, "", m.groups.qty); }
   }
 
-  // B) "... Qty: n" of "... Aantal: n"
+  // — B: "Item … Qty: 2" of "Item … Aantal: 2"
   for (const line of lines){
     const m = line.match(/^(?<item>.+?)\s+(?:Qty|Aantal)\s*[: ]\s*(?<qty>\d+)\b/i);
-    if (m){ push(m.groups.item, "", m.groups.qty); continue; }
+    if (m){ push(m.groups.item, "", m.groups.qty); }
   }
 
-  // C) Zelfde regel met Serial/SN/ID
+  // — C: Zelfde regel met serial
   for (const line of lines){
-    const m = line.match(/^(?<qty>\d+)?\s*(?:x)?\s*(?<item>.+?)\s+(?:Serial|S\/N|SN|Serienummer|ID|Asset|Barcode)\s*[:# ]\s*(?<sn>[A-Z0-9\-\/._]+)/i);
-    if (m){ push(m.groups.item, m.groups.sn, m.groups.qty||1); continue; }
+    const m = line.match(/^(?<qty>\d+)?\s*(?:x|×)?\s*(?<item>.+?)\s+(?:Serial|S\/N|SN|Serienummer|ID|Asset|Barcode)\s*[:# ]\s*(?<sn>[A-Z0-9\-\/._]+)/i);
+    if (m){ push(m.groups.item, m.groups.sn, m.groups.qty||1); }
   }
 
-  // D) Tabelregels op grote whitespaceblokken
+  // — D: Tabel-achtige regels (meerdere kolommen door grote gaten → ≥3 spaties)
   for (const line of lines){
     const cols = line.split(/\s{3,}/).map(c=>c.trim());
     if (cols.length >= 3){
-      const [A,B,C,D] = cols;
-      if (/^\d+$/.test(C))       push(A, B, C, D||"");
-      else if (/^\d+$/.test(B))  push(A, "", B, C||"");
+      // kies de langste kolom als item; een zuiver nummer als qty
+      let qtyCol = cols.find(c => /^\d+$/.test(c));
+      if (qtyCol){
+        const itemCol = cols.slice().sort((a,b)=>b.length-a.length)[0];
+        push(itemCol, "", qtyCol);
+      }
     }
   }
 
-  // E) Naam + volgende regel qty
+  // — E: Item gevolgd door aparte "Qty/Aantal" op volgende regel
   if (!rows.length){
     for (let i=0;i<lines.length-1;i++){
       const l1 = lines[i], l2 = lines[i+1];
       const m = l2.match(/(?:Qty|Aantal)\s*[: ]\s*(\d+)/i);
-      if (m && !/total|totaal|sum/i.test(l1)) push(l1, "", m[1]);
+      if (m && !/total|totaal|sum|subtotal/i.test(l1)) push(l1, "", m[1]);
     }
   }
 
-  // F) Dedupe (merge qty)
+  // — F: Serial op volgende regel
+  for (let i=0;i<rows.length;i++){
+    if (rows[i].Serial) continue;
+    const next = lines.find(l => /(?:Serial|S\/N|SN|Serienummer)\s*[:# ]\s*[A-Z0-9\-\/._]+/i.test(l));
+    if (next) {
+      const m = next.match(/(?:Serial|S\/N|SN|Serienummer)\s*[:# ]\s*([A-Z0-9\-\/._]+)/i);
+      if (m) rows[i].Serial = m[1];
+    }
+  }
+
+  // — G: Dedupe (merge op Item+Serial)
   const map = new Map();
   for (const r of rows){
     const key = (r.Item.toLowerCase()+"|"+(r.Serial||"").toLowerCase());
