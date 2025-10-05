@@ -1,4 +1,12 @@
 // ===== Utils =====
+
+// pdf.js worker instellen
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+}
+
+
 const $ = s => document.querySelector(s);
 const itemsTbody = $("#itemsTable tbody");
 const addBtn = $("#btnAdd");
@@ -639,4 +647,81 @@ function toast(msg, isError=false) {
     el.style.opacity = "0";
     el.style.transform = "translateX(-50%) translateY(15px)";
   }, 3000);
+}
+
+const DRIVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbzd3nbFw89V-Ac4YYXh6OCMHLYIHx58tHk86pmVYAugSiS4YLFZEEhbQhiiMZezDoQ/exec";
+
+async function afterUnlock(){
+  // 1) lees order param
+  const url = new URL(location.href);
+  const order = url.searchParams.get("order"); // bv "contract-228.pdf"
+  if (!order) return; // niets te importeren
+
+  try {
+    toast("Gear-lijst laden…");
+    const pdfAb = await fetchPdfFromDrive(order);
+    const text  = await extractTextFromPdf(pdfAb);
+    const rows  = parseBooqableItems(text); // => [{Item, Serial, Qty, Condition}, ...]
+    if (Array.isArray(rows) && rows.length){
+      // wis bestaande rows
+      document.querySelector("#itemsTable tbody").innerHTML = "";
+      rows.forEach(addRow);
+      toast(`Gear-lijst geïmporteerd (${rows.length} regels) ✅`);
+    } else {
+      toast("Geen items gevonden in PDF.", true);
+    }
+  } catch (e) {
+    console.error(e);
+    toast("Kon PDF niet laden of lezen.", true);
+  }
+}
+
+async function fetchPdfFromDrive(filename){
+  const res = await fetch(`${DRIVE_ENDPOINT}?file=` + encodeURIComponent(filename), {
+    method: "GET",
+    headers: { "Accept": "application/json" }
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "download failed");
+  const bytes = Uint8Array.from(atob(json.data), c => c.charCodeAt(0));
+  return bytes.buffer; // ArrayBuffer
+}
+
+async function extractTextFromPdf(arrayBuffer){
+  if (!window.pdfjsLib) throw new Error("pdf.js not loaded");
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = "";
+  for (let p = 1; p <= pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const lines = content.items.map(it => it.str).join(" ");
+    fullText += "\n" + lines;
+  }
+  return fullText;
+}
+
+function parseBooqableItems(text){
+  // Voorbeeldje: zoekt regels als "2x Itemnaam  |  Serial: ABC123"
+  // Pas aan op jouw PDF-tekst; eerst even console.log(text) om te zien hoe het eruit ziet.
+  const rows = [];
+  const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+
+  for (const line of lines){
+    // voorbeelden van patronen – KIES/PAK AAN:
+    // 1) "Qty Item — Serial"
+    let m = line.match(/^(\d+)\s*[xX]?\s+(.+?)\s+(?:Serial|S\/N|SN|ID)[:\s]+([A-Z0-9\-\/._]+)$/i);
+    if (m){
+      rows.push({ Item: m[2], Serial: m[3], Qty: parseInt(m[1],10)||1, Condition: "" });
+      continue;
+    }
+
+    // 2) "Item (Serial: ... )  Qty: N"
+    m = line.match(/^(.+?)\s*\(.*?(?:Serial|S\/N)[:\s]+([^)]+)\)\s+Qty[:\s]+(\d+)/i);
+    if (m){
+      rows.push({ Item: m[1], Serial: m[2], Qty: parseInt(m[3],10)||1, Condition: "" });
+      continue;
+    }
+  }
+
+  return rows;
 }
