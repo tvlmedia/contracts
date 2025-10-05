@@ -59,7 +59,77 @@ function normalizePhoneNL(raw){
   if (s.startsWith("31") && !s.startsWith("+31")) s = "+31" + s.slice(2);
   return s;
 }
+function clearItemsTable(){
+  const tbody = document.querySelector("#itemsTable tbody");
+  if (tbody) tbody.innerHTML = "";
+}
 
+function resetLocationsToOffice(){
+  const ADDRESS_OFFICE = "Beek en Donk (Donkersvoorstestraat 3)";
+  const pickupSel = document.getElementById("pickupMode");
+  const returnSel = document.getElementById("returnMode");
+  const pickupInput = document.getElementById("pickupDeliveryInput");
+  const returnInput = document.getElementById("returnDeliveryInput");
+  const pickupHidden = document.getElementById("pickupLocation");
+  const returnHidden = document.getElementById("returnLocation");
+
+  if (pickupSel) pickupSel.value = "office";
+  if (returnSel) returnSel.value = "office";
+  if (pickupInput) pickupInput.value = "";
+  if (returnInput) returnInput.value = "";
+  if (pickupHidden) pickupHidden.value = ADDRESS_OFFICE;
+  if (returnHidden) returnHidden.value = ADDRESS_OFFICE;
+
+  // reflect UI
+  syncLocation("pickup");
+  syncLocation("return");
+}
+
+function logout(){
+  // 1) bewaar (optioneel) laatst ingevoerde naam voor het gate-veld
+  const lastName = (document.querySelector('input[name="renterName"]')?.value || "").trim();
+
+  // 2) sluit popups
+  try { window.fpPickup?.close?.(); } catch {}
+  try { window.fpReturn?.close?.(); } catch {}
+
+  // 3) leeg contact & project
+  const fields = [
+    'input[name="renterName"]',
+    'input[name="company"]',
+    'input[name="email"]',
+    'input[name="phone"]',
+    'input[name="project"]',
+    'input[name="po"]'
+  ];
+  fields.forEach(sel => { const el = document.querySelector(sel); if (el) el.value = ""; });
+
+  // 4) reset locaties
+  resetLocationsToOffice();
+
+  // 5) items leeg + handtekening wissen
+  clearItemsTable();
+  try { if (window.signaturePad) window.signaturePad.clear(); } catch {}
+
+  // 6) URL schoon
+  const url = new URL(location.href);
+  ["order","name","sig"].forEach(k => url.searchParams.delete(k));
+  history.replaceState(null, "", url.toString());
+
+  // 7) toon gate + prefills
+  const gate = document.getElementById("gate");
+  if (gate) {
+    document.body.classList.add("locked");
+    const gateInput = gate.querySelector("#gateName");
+    if (gateInput) gateInput.value = lastName; // “meenemen naar de volgende invoering”
+  }
+
+  // 8) zorg dat kalenders/handtekening weer netjes initialiseren na relock
+  setTimeout(() => {
+    // als je ensureDatePickers()/initSignaturePad() helpers hebt, kun je ze hier eventueel aanroepen
+    try { window.dispatchEvent(new Event("resize")); } catch {}
+  }, 50);
+}
 // ——— gate input classificatie
 function classifyLoginInput(v){
   const s = (v||"").trim();
@@ -1071,3 +1141,4 @@ if (logoutBtn) {
     toast("Uitgelogd – voer opnieuw je naam in om verder te gaan.");
   });
 }
+document.getElementById("btnLogout")?.addEventListener("click", logout);
