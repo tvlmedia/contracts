@@ -825,121 +825,124 @@ function setIfEmpty(sel, val) {
   if (el && !el.value) el.value = val.trim();
 }
 
-// --- customer-blok parser: bedrijf (bold) → naam → (straat) → e-mail → telefoon ---
+// ——— bedrijfsnaam/naam uit PDF (negeert TVL-blok, volgt: Company → Name → Address) ———
 function fillRenterFromText(txt) {
   if (!txt) return;
 
-  // Top van document is genoeg om het klantblok te raken
   const head = txt.slice(0, 20000);
 
-  // ===== eigen blok (TVL) dat we willen negeren =====
-  const OUR_BRAND    = /(TVL\s*Rental|TVL\s*Media)/i;
-  const OUR_EMAILS   = /@tvlmedia\.nl|@tvlrental\.nl/i;
-  const OUR_ADDRESS  = /(Donkersvoorstestraat|Beek\s*en\s*Donk|5741\s*RL)/i;
+  // TVL (eigen) blok negeren
+  const OUR_BRAND   = /(TVL\s*Rental|TVL\s*Media)/i;
+  const OUR_EMAILS  = /@tvlmedia\.nl|@tvlrental\.nl/i;
+  const OUR_ADDRESS = /(Donkersvoorstestraat|Beek\s*en\s*Donk|5741\s*RL)/i;
 
-  // ===== basisregexen =====
-  const EMAIL_ONE = EMAIL_RE;                                // voor test()
-  const EMAIL_ALL = new RegExp(EMAIL_RE.source, "gi");       // voor matchAll()
+  const EMAIL_ONE = EMAIL_RE;
+  const EMAIL_ALL = new RegExp(EMAIL_RE.source, "gi");
   const ANY_NL_MOBILE = /(?:(?:\+31|0031|0)\s*6(?:[\s-]?\d){8})/;
-  const ANY_NL_PHONE  = /(?:(?:\+31|0031|0)\s*(?:\d[\s-]?){8,10}\d)/; // incl. vaste lijn
-  const POSTCODE_NL   = /\b\d{4}\s?[A-Z]{2}\b/;
-  const STREET_WORDS  = /\b(straat|laan|weg|plein|gracht|dreef|kade|avenue|road|lane|drive|boulevard)\b/i;
-  const CAP_NAME_RE   = /^([A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+){0,2})$/;
-  const COMPANY_HINTS = /\b(BV|B\.V\.|N\.?V\.?|VOF|Holding|Group|Studio|Media|Productions?|Creative|Events?)\b/i;
-  const CUSTOMER_HDR  = /(bill\s*to|customer|klant|client)/i;
+  const ANY_NL_PHONE  = /(?:(?:\+31|0031|0)\s*(?:\d[\s-]?){8,10}\d)/;
 
-  // ===== helpers =====
-  const isEmail    = (s) => EMAIL_ONE.test(s);
-  const isPhone    = (s) => ANY_NL_PHONE.test(s);
-  const isAddress  = (s) =>
-    POSTCODE_NL.test(s) || STREET_WORDS.test(s) || (/\b\d{1,4}\b/.test(s) && /\d/.test(s));
-  const looksName  = (s) => CAP_NAME_RE.test(s) && !isAddress(s) && !isEmail(s) && !isPhone(s);
-  const looksCo    = (s) => (COMPANY_HINTS.test(s) || /[A-Z].*[A-Z]/.test(s))
-                          && !isAddress(s) && !isEmail(s) && !isPhone(s);
-  const notOurs    = (s) => !(OUR_BRAND.test(s) || OUR_ADDRESS.test(s) || OUR_EMAILS.test(s));
+  const POSTCODE_NL  = /\b\d{4}\s?[A-Z]{2}\b/;
+  const STREET_WORDS = /\b(straat|laan|weg|plein|gracht|dreef|kade|avenue|road|lane|drive|boulevard)\b/i;
+  const CAP_NAME_RE  = /^([A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+){0,2})$/;
+  const COMPANY_HINTS= /\b(BV|B\.V\.|N\.?V\.?|VOF|Holding|Group|Studio|Media|Productions?|Creative|Events?)\b/i;
+  const CUSTOMER_HDR = /(bill\s*to|customer|klant|client)/i;
 
-  const lines = head
-    .split(/\r?\n/)
-    .map((s) => s.replace(/\u00A0/g, " ").replace(/\s{2,}/g, " ").trim())
+  const isEmail   = s => EMAIL_ONE.test(s);
+  const isPhone   = s => ANY_NL_PHONE.test(s);
+  const isAddress = s => POSTCODE_NL.test(s) || STREET_WORDS.test(s) || /\b\d{1,4}\b/.test(s) && /\d/.test(s);
+  const looksName = s => CAP_NAME_RE.test(s) && !isAddress(s) && !isEmail(s) && !isPhone(s);
+  const looksCo   = s => (COMPANY_HINTS.test(s) || /[A-Z].*[A-Z]/.test(s)) && !isAddress(s) && !isEmail(s) && !isPhone(s);
+  const notOurs   = s => !(OUR_BRAND.test(s) || OUR_ADDRESS.test(s) || OUR_EMAILS.test(s));
+
+  const lines = head.split(/\r?\n/)
+    .map(s => s.replace(/\u00A0/g, " ").replace(/\s{2,}/g, " ").trim())
     .filter(Boolean);
 
-  // 1) Zoek expliciet het "Customer/Klant/Bill to"-kopje
-  const hdrIdx = lines.findIndex((l) => CUSTOMER_HDR.test(l) && notOurs(l));
+  // 1) Zoek "Customer / Bill to / Klant"
+  const hdrIdx = lines.findIndex(l => CUSTOMER_HDR.test(l) && notOurs(l));
 
-  // helper om blok na het kopje te pakken
-  function blockAfter(idx) {
+  function getBlockAroundEmailOrHeader() {
+    // a) blok NA het header-kopje
+    if (hdrIdx >= 0) {
+      const out = [];
+      for (let i = hdrIdx + 1; i < Math.min(lines.length, hdrIdx + 16); i++) {
+        const L = lines[i];
+        if (!L) break;
+        if (!notOurs(L)) continue;
+        if (/^(pickup|return|date|datum|subtotal|totaal|total|payment|btw|vat)/i.test(L)) break;
+        out.push(L);
+      }
+      if (out.length) return out;
+    }
+    // b) geen header → neem blok vlak BOVEN een klant-e-mail (laagste niet-TVL e-mail)
+    const emails = [...head.matchAll(EMAIL_ALL)]
+      .filter(m => notOurs(m[0]));
+    if (!emails.length) return [];
+    const pick = emails[emails.length - 1]; // pak laagste (klant)
+    const idx  = pick.index || 0;
+    const before = head.slice(0, idx).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    // neem tot 10 regels boven de mail, stop bij lege regel
     const out = [];
-    for (let i = idx + 1; i < Math.min(lines.length, idx + 14); i++) {
-      const L = lines[i];
+    for (let k = before.length - 1; k >= 0 && out.length < 10; k--) {
+      const L = before[k];
       if (!L) break;
-      // stop zodra we weer in totals/metadata of TVL-ruis komen
-      if (/^(pickup|return|date|datum|subtotal|totaal|total|payment|betaal|btw|vat)/i.test(L)) break;
       if (!notOurs(L)) continue;
-      out.push(L);
-      // blok eindigt vaak op lege regel – die hebben we weggefilterd, dus limiet vangt het af
+      out.unshift(L);
+      if (/^\s*$/.test(before[k - 1] || "")) break;
     }
     return out;
   }
 
+  const block = getBlockAroundEmailOrHeader();
+
+  // 2) Vind expliciet patroon: Company → Name → Address
   let company = "";
   let name = "";
-  let email = "";
-  let phone = "";
-
-  if (hdrIdx >= 0) {
-    const b = blockAfter(hdrIdx);
-
-    // a) Pak e-mail/telefoon in/na het blok (max 6 regels)
-    const tail = b.concat(lines.slice(hdrIdx + 1, hdrIdx + 8));
-    const emailMatch = tail.join("\n").match(EMAIL_ALL);
-    if (emailMatch) {
-      email = (emailMatch.find((m) => notOurs(m)) || "") || "";
-    }
-    const nearPhones = tail.join("\n").match(ANY_NL_MOBILE) || tail.join("\n").match(ANY_NL_PHONE);
-    if (nearPhones) phone = nearPhones[0];
-
-    // b) Filter ruis uit het blok om de bovenste 2 ‘schone’ regels te krijgen
-    const cleaned = b.filter(
-      (l) =>
-        !isEmail(l) &&
-        !isPhone(l) &&
-        !isAddress(l) &&
-        !/€|EUR|BTW|VAT|Invoice|Factuur|Order|Bestel|Reference/i.test(l)
-    );
-
-    // c) Heuriek: eerste regel = bedrijf (bold in PDF), tweede = naam
-    if (cleaned.length >= 1) {
-      if (looksCo(cleaned[0])) company = cleaned[0];
-      else if (looksName(cleaned[0])) name = cleaned[0];
-      else company = cleaned[0]; // fallback
-    }
-    if (cleaned.length >= 2) {
-      if (!name && looksName(cleaned[1])) name = cleaned[1];
-      else if (!company && looksCo(cleaned[1])) company = cleaned[1];
-      else if (!name) name = cleaned[1];
+  for (let i = 0; i < block.length - 2; i++) {
+    const L0 = block[i], L1 = block[i+1], L2 = block[i+2];
+    if (looksCo(L0) && looksName(L1) && isAddress(L2)) {
+      company = L0;
+      name = L1;
+      break;
     }
   }
+  // 3) Als niet gevonden: twee-regel fallback (Company → Name)
+  if (!company || !name) {
+    for (let i = 0; i < block.length - 1; i++) {
+      const L0 = block[i], L1 = block[i+1];
+      if (looksCo(L0) && looksName(L1)) { company = company || L0; name = name || L1; break; }
+      if (looksName(L0) && looksCo(L1)) { name = name || L0; company = company || L1; break; }
+    }
+  }
+  // 4) Laatste fallback: eerste schone regel = company, tweede = name
+  if (!company || !name) {
+    const cleaned = block.filter(l => !isEmail(l) && !isPhone(l) && !isAddress(l));
+    if (!company && cleaned[0]) company = cleaned[0];
+    if (!name && cleaned[1])    name    = cleaned[1];
+  }
 
-  // 2) Fallbacks als er geen header werd gevonden (oude PDF-varianten)
+  // 5) E-mail & telefoon (rond het blok heen), met fallbacks
+  const nearText = block.join("\n");
+  let email = (nearText.match(EMAIL_ALL) || []).find(m => notOurs(m)) || "";
   if (!email) {
-    const matches = [...head.matchAll(EMAIL_ALL)]
-      .filter((m) => notOurs(m[0]));
-    if (matches.length) email = matches[matches.length - 1][0]; // pak lagere (klant) e-mail
+    const all = [...head.matchAll(EMAIL_ALL)].map(m => m[0]).filter(notOurs);
+    email = all[all.length - 1] || "";
   }
+
+  let phone = (nearText.match(ANY_NL_MOBILE)?.[0] || nearText.match(ANY_NL_PHONE)?.[0] || "");
   if (!phone) {
     const m = head.match(ANY_NL_MOBILE) || head.match(ANY_NL_PHONE);
     if (m && notOurs(m[0])) phone = m[0];
   }
   phone = normalizePhoneNL(phone);
 
-  // 3) Invullen (slim overschrijven van foute inhoud)
-  setSmart('input[name="email"]',      email,  (v) => EMAIL_ONE.test(v));
-  setSmart('input[name="phone"]',      phone,  (v) => NL_PHONE_RE.test(v.replace(/\s+/g, "").replace(/-/g, "")));
-  setSmart('input[name="renterName"]', name,   (v) => !EMAIL_ONE.test(v) && !NL_PHONE_RE.test(v));
-  setSmart('input[name="company"]',    company,(v) => !EMAIL_ONE.test(v) && !NL_PHONE_RE.test(v));
+  // 6) Invullen – overschrijft alleen onzin (zoals tel/e-mail in bedrijfsveld)
+  setSmart('input[name="company"]',    company, v => !EMAIL_ONE.test(v) && !NL_PHONE_RE.test(v.replace(/\s+/g,"").replace(/-/g,"")));
+  setSmart('input[name="renterName"]', name,    v => !EMAIL_ONE.test(v) && !NL_PHONE_RE.test(v));
+  setSmart('input[name="email"]',      email,   v => EMAIL_ONE.test(v));
+  setSmart('input[name="phone"]',      phone,   v => NL_PHONE_RE.test(v.replace(/\s+/g,"").replace(/-/g,"")));
 
-  // DEBUG indien nodig:
-  // console.log({hdrIdx, company, name, email, phone});
+  // console.log({block, company, name, email, phone});
 }
 function fillDatesFromText(txt){
   if (!txt) return;
