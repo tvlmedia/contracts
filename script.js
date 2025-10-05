@@ -276,7 +276,7 @@ try {
   const b64 = base64FromArrayBuffer(ab);
 
   // Zet hier jouw Apps Script URL neer:
-  const ENDPOINT = "PASTE_HIER_JE_APPS_SCRIPT_WEB_APP_URL";
+  const ENDPOINT = "https://script.google.com/macros/s/AKfycbyz3Yxfi_UmvyVo1qWYKiIGI4Z6lU0oCqSBSYn1bqBpOeqm3Q4gm746LuMp1uDsF3U/exec";
 
   // Gebruik text/plain om CORS preflight te voorkomen
   await fetch(ENDPOINT, {
