@@ -495,7 +495,7 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
 })();
 
 // ====== PDF import uit Drive + parsing ======
-const DRIVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbzd3nbFw89V-Ac4YYXh6OCMHLYIHx58tHk86pmVYAugSiS4YLFZEEhbQhiiMZezDoQ/exec"; // <--- PAS AAN (GET ?file=...)
+const DRIVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbwBSM1AzLe0yceqPJ4136cChX8WZhswcf5Ar5nNBysxM4DdhsChcg9yXZViLI3dpL4/exec"; // <--- PAS AAN (GET ?file=...)
 
 async function afterUnlock(){
   const url = new URL(location.href);
