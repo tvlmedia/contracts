@@ -494,7 +494,7 @@ form?.addEventListener("submit", async (e) => {
   // 1) Download
   doc.save(filename);
 
- // 2) Mail
+// 2) Mail (dubbele poging: text/plain -> application/json)
 try {
   const ab  = doc.output("arraybuffer");
   const b64 = base64FromArrayBuffer(ab);
@@ -519,16 +519,23 @@ try {
     replyTo: isValidEmail(data.email) ? data.email : ""
   };
 
-  const res = await fetch(MAIL_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" }, // ✅ belangrijk
-    body: JSON.stringify(payload)
-  });
+  async function trySend(contentType){
+    const res = await fetch(MAIL_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": contentType },
+      body: JSON.stringify(payload)
+    });
+    const text = await res.text();
+    console.log("MAIL attempt:", contentType, res.status, text);
+    return { ok: res.ok, text, status: res.status };
+  }
 
-  const debugText = await res.text();
-  console.log("MAIL response:", res.status, debugText);
+  // Apps Script wisselt soms qua verwachting; probeer beide.
+  let r = await trySend("text/plain;charset=utf-8");
+  if (!r.ok) r = await trySend("application/json");
 
-  if (!res.ok) throw new Error(`Mail endpoint HTTP ${res.status}`);
+  if (!r.ok) throw new Error(`Mail endpoint HTTP ${r.status}: ${r.text}`);
+
   toast(`PDF gemaild naar info@tvlrental.nl${isValidEmail(data.email) ? " + cc naar huurder" : ""} ✅`);
 } catch (err) {
   console.error(err);
