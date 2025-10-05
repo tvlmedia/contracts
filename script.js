@@ -408,7 +408,6 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   return y + lines.length * (fontSize + 2);
 }
 
-// ====== Naam / wachtwoord gate (robust) ======
 // ====== Naam / wachtwoord gate ======
 (async function initGate(){
   const input = document.getElementById("gateName");
@@ -457,7 +456,7 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
     }
   }
 
-  // C) sig (zonder geldige name) → vraag naam en check
+  // C) sig (zonder geldige name) → vraag en verifieer
   document.body.classList.add("locked");
   if (qName) input.value = qName;
 
