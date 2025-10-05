@@ -53,3 +53,43 @@ select:focus{ border-color:#2f7df0; box-shadow:0 0 0 3px rgb(47 125 240 / .2); }
 
 /* (optioneel) flatpickr typografie matchen */
 .flatpickr-calendar{ font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+:root { --bg:#0b0d0f; --card:#15181c; --ink:#e9eef3; --muted:#a8b3c1; --acc:#2c7be5; }
+* { box-sizing:border-box; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+html,body { margin:0; background:var(--bg); color:var(--ink); }
+a { color:var(--acc); }
+.container { max-width:980px; margin:40px auto; padding:0 16px; }
+header .subtitle { color:var(--muted); margin-top:-8px; }
+h1,h2 { margin:0 0 12px; }
+section { background:var(--card); border:1px solid #232a33; border-radius:12px; padding:16px; margin:18px 0; }
+.grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
+label { display:flex; flex-direction:column; gap:6px; font-size:14px; }
+
+input[type="text"],input[type="email"],input[type="tel"],input[type="number"]{
+  background:#0e1116; border:1px solid #2a313b; color:var(--ink); padding:10px; border-radius:8px;
+}
+.checkbox { display:flex; align-items:center; gap:10px; }
+.checkbox input { width:18px; height:18px; }
+.hint { background:#0f1318; border:1px dashed #2b3340; border-radius:10px; padding:10px; color:var(--muted); }
+.items { overflow:auto; }
+#itemsTable { width:100%; border-collapse:collapse; margin-top:10px; }
+#itemsTable th,#itemsTable td { border-bottom:1px solid #2a313b; padding:10px; text-align:left; }
+#itemsTable th { font-weight:700; background:#10151b; position:sticky; top:0; }
+.row.add { display:grid; grid-template-columns: 2fr 1fr 0.6fr 1.2fr auto; gap:8px; margin-top:10px; }
+button { background:var(--acc); color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
+button:hover { filter:brightness(1.05); }
+.sig-wrap { background:#0f1318; border:1px solid #2a313b; border-radius:10px; padding:10px; }
+#signaturePad { width:100%; background:#fff; border-radius:8px; display:block; }
+.sig-actions { margin-top:10px; display:flex; gap:8px; }
+.actions { display:flex; justify-content:flex-end; }
+footer { color:var(--muted); text-align:center; margin:24px 0 40px; }
+@media (max-width:720px) { .grid { grid-template-columns:1fr; } }
+
+/* Selects in dezelfde stijl als inputs */
+select{
+  background:#0e1116; border:1px solid #2a313b; color:#e9eef3;
+  padding:10px 12px; border-radius:10px; outline:none;
+}
+select:focus{ border-color:#2f7df0; box-shadow:0 0 0 3px rgb(47 125 240 / .2); }
+
+/* Flatpickr font match */
+.flatpickr-calendar{ font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
