@@ -355,8 +355,8 @@ form.addEventListener("submit", async (e) => {
   try {
     const ab = doc.output("arraybuffer");
     const b64 = base64FromArrayBuffer(ab);
-    const ENDPOINT = "const DRIVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbwOHc7ytcXLyi5D7HWrFha_hZbG5teEr9qFuprqLQ3h1OeePvkM0-LkYmbmgtafH1A/exec";";
-
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbyz3Yxfi_UmvyVo1qWYKiIGI4Z6lU0oCqSBSYn1bqBpOeqm3Q4gm746LuMp1uDsF3U/exec";
+    
     await fetch(ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -480,7 +480,8 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   }
 })();
 // ====== PDF import uit Drive + parsing ======
-const DRIVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbwBSM1AzLe0yceqPJ4136cChX8WZhswcf5Ar5nNBysxM4DdhsChcg9yXZViLI3dpL4/exec"; // <--- PAS AAN (GET ?file=...)
+// Drive-endpoint (Apps Script dat de PDF uit je map leest)
+const DRIVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbwOHc7ytcXLyi5D7HWrFha_hZbG5teEr9qFuprqLQ3h1OeePvkM0-LkYmbmgtafH1A/exec";
 
 async function afterUnlock(){
   const url = new URL(location.href);
