@@ -1,12 +1,10 @@
-// ===== Utils =====
-
-// pdf.js worker instellen
+// ====== pdf.js worker instellen (1x) ======
 if (window.pdfjsLib) {
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
 }
 
-
+// ====== Utils ======
 const $ = s => document.querySelector(s);
 const itemsTbody = $("#itemsTable tbody");
 const addBtn = $("#btnAdd");
@@ -16,7 +14,7 @@ const acceptTerms = $("#acceptTerms");
 const yearEl = $("#year");
 yearEl.textContent = new Date().getFullYear();
 
-// ===== Signature Pad =====
+// ====== Signature Pad ======
 let signaturePad;
 window.addEventListener("load", () => {
   const canvas = document.getElementById("signaturePad");
@@ -66,8 +64,7 @@ function toast(msg, isError=false){
   toast._t = setTimeout(()=> el.style.display = "none", 2600);
 }
 
-
-// ===== Date/Time pickers (Flatpickr) =====
+// ====== Date/Time pickers (Flatpickr) ======
 let fpPickup, fpReturn;
 
 (function initDateTimePickers(){
@@ -90,7 +87,7 @@ let fpPickup, fpReturn;
   const midnight   = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
   function hardenReturnCalendar(pick){
-    if (!fpReturn) return;                               // << guard!
+    if (!fpReturn) return;
     const minDay   = midnight(pick);
     const minStamp = pick.getTime();
 
@@ -99,7 +96,7 @@ let fpPickup, fpReturn;
 
     // Minimale datum/tijd en corrigeer huidige waarde
     fpReturn.set("minDate", pick);
-    const minReturn = addMinutes(pick, 15);             // buffer (pas 15 → 60 aan voor 1 uur)
+    const minReturn = addMinutes(pick, 15); // buffer (zet 60 i.p.v. 15 voor 1 uur)
     const current   = fpReturn.selectedDates[0];
     if (!current || current.getTime() < minStamp || current < minReturn) {
       fpReturn.setDate(minReturn, false);
@@ -122,7 +119,7 @@ let fpPickup, fpReturn;
     onValueUpdate: (sel) => hardenReturnCalendar(sel[0] || rounded)
   });
 
-  // 3) Eerste hardening (voor het geval onReady eerder niet afging)
+  // 3) Eerste hardening fallback
   hardenReturnCalendar(fpPickup.selectedDates[0] || rounded);
 
   // optioneel: global voor debug
@@ -130,7 +127,7 @@ let fpPickup, fpReturn;
   window.fpReturn = fpReturn;
 })();
 
-// ===== Locaties dropdowns =====
+// ====== Locaties dropdowns ======
 const ADDRESS_OFFICE = "Beek en Donk (Donkersvoorstestraat 3)";
 
 function syncLocation(mode){
@@ -159,14 +156,15 @@ function syncLocation(mode){
   const inp = document.getElementById(m + "DeliveryInput");
   if (sel) sel.addEventListener("change", ()=>syncLocation(m));
   if (inp) inp.addEventListener("input", ()=>syncLocation(m));
-  syncLocation(m); // initial state
-}); // <-- forEach correct afgesloten
+  syncLocation(m);
+});
 
 form.addEventListener("submit", () => {
   syncLocation("pickup");
   syncLocation("return");
 });
-// ===== Items tabel =====
+
+// ====== Items tabel ======
 function addRow({Item="", Serial="", Qty=1, Condition=""}) {
   const tr = document.createElement("tr");
   tr.innerHTML = `
@@ -189,7 +187,7 @@ addBtn.addEventListener("click", () => {
   $("#addItem").value = ""; $("#addSerial").value = ""; $("#addQty").value = 1; $("#addCondition").value = "";
 });
 
-// ===== CSV upload =====
+// ====== CSV upload ======
 csvInput.addEventListener("change", (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -210,7 +208,7 @@ csvInput.addEventListener("change", (e) => {
   });
 });
 
-// ===== Helpers =====
+// ====== Helpers ======
 function collectItems() {
   const rows = [...itemsTbody.querySelectorAll("tr")];
   return rows.map(tr => {
@@ -233,7 +231,7 @@ async function getIP() {
   catch (_) { return {}; }
 }
 
-// ===== PDF =====
+// ====== PDF genereren + mailen ======
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!acceptTerms.checked) { alert("Je moet akkoord gaan met de algemene voorwaarden."); return; }
@@ -246,7 +244,7 @@ form.addEventListener("submit", async (e) => {
     if (!confirm("De gear-lijst is leeg. Toch doorgaan en PDF maken?")) return;
   }
 
-    // --- harde validatie op datums ---
+  // --- harde validatie op datums ---
   const pickDT = (fpPickup && fpPickup.selectedDates[0]) ? fpPickup.selectedDates[0] : null;
   const retDT  = (fpReturn && fpReturn.selectedDates[0]) ? fpReturn.selectedDates[0] : null;
 
@@ -254,8 +252,7 @@ form.addEventListener("submit", async (e) => {
     alert("Vul eerst de ophaal- en retourdatum in.");
     return;
   }
-  const minReturn = new Date(pickDT.getTime() + 15*60*1000); // wijzig 15 -> 60 voor 1 uur buffer
-
+  const minReturn = new Date(pickDT.getTime() + 15*60*1000); // evt. 60*60*1000 voor 1 uur
   if (retDT < minReturn) {
     fpReturn.setDate(minReturn, true);
     alert("Retour kan niet vóór ophaal (min. +15 min). Ik heb de retourtijd aangepast.");
@@ -348,53 +345,49 @@ form.addEventListener("submit", async (e) => {
   const pageH = doc.internal.pageSize.getHeight();
   drawParagraph(doc, foot, margin, pageH - 40, 522, 10);
 
- const safeProject = (data.project || "project").replace(/[^a-z0-9_\-]+/gi,"_");
-const filename = `TVL_Rental_Overdracht_${safeProject}_${id}.pdf`;
+  const safeProject = (data.project || "project").replace(/[^a-z0-9_\-]+/gi,"_");
+  const filename = `TVL_Rental_Overdracht_${safeProject}_${id}.pdf`;
 
-// 1) Download voor de huurder
-doc.save(filename);
+  // 1) Download voor de huurder
+  doc.save(filename);
 
-// 2) Stuur per mail naar TVL (via Apps Script)
-try {
-  // jsPDF → ArrayBuffer → base64
-  const ab = doc.output("arraybuffer");
-  const b64 = base64FromArrayBuffer(ab);
+  // 2) Stuur per mail naar TVL (via Apps Script)
+  try {
+    const ab = doc.output("arraybuffer");
+    const b64 = base64FromArrayBuffer(ab);
+    const ENDPOINT = "https://script.google.com/macros/s/AKfycbyz3Yxfi_UmvyVo1qWYKiIGI4Z6lU0oCqSBSYn1bqBpOeqm3Q4gm746LuMp1uDsF3U/exec";
 
-  // Zet hier jouw Apps Script URL neer:
-  const ENDPOINT = "https://script.google.com/macros/s/AKfycbyz3Yxfi_UmvyVo1qWYKiIGI4Z6lU0oCqSBSYn1bqBpOeqm3Q4gm746LuMp1uDsF3U/exec";
-
-  // Gebruik text/plain om CORS preflight te voorkomen
- await fetch(ENDPOINT, {
-  method: "POST",
-  headers: { "Content-Type": "text/plain;charset=utf-8" },
-  body: JSON.stringify({
-    subject: `TVL Overdracht – ${safeProject} (${id})`,
-    body: `
-      <p>Nieuwe overdracht PDF.</p>
-      <ul>
-        <li><b>Formulier ID</b>: ${id}</li>
-        <li><b>Project</b>: ${data.project || ""}</li>
-        <li><b>Huurder</b>: ${data.renterName || ""}</li>
-        <li><b>Ophaal</b>: ${data.pickup || ""}</li>
-        <li><b>Retour</b>: ${data.return || ""}</li>
-      </ul>
-      <p>Bijlage: ${filename}</p>
-    `,
-    filename,
-    mimeType: "application/pdf",
-    attachmentBase64: b64,
-    cc: isValidEmail(data.email) ? data.email : "",   // <-- cc naar huurder
-    replyTo: isValidEmail(data.email) ? data.email : ""
-  })
-});
- toast(`PDF gemaild naar info@tvlrental.nl${isValidEmail(data.email) ? " + cc naar huurder" : ""} ✅`);
-} catch (err) {
-  console.error(err);
-  toast("Mailen mislukte (verbinding) — PDF wel gedownload.", true);
-}
+    await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        subject: `TVL Overdracht – ${safeProject} (${id})`,
+        body: `
+          <p>Nieuwe overdracht PDF.</p>
+          <ul>
+            <li><b>Formulier ID</b>: ${id}</li>
+            <li><b>Project</b>: ${data.project || ""}</li>
+            <li><b>Huurder</b>: ${data.renterName || ""}</li>
+            <li><b>Ophaal</b>: ${data.pickup || ""}</li>
+            <li><b>Retour</b>: ${data.return || ""}</li>
+          </ul>
+          <p>Bijlage: ${filename}</p>
+        `,
+        filename,
+        mimeType: "application/pdf",
+        attachmentBase64: b64,
+        cc: isValidEmail(data.email) ? data.email : "",
+        replyTo: isValidEmail(data.email) ? data.email : ""
+      })
+    });
+    toast(`PDF gemaild naar info@tvlrental.nl${isValidEmail(data.email) ? " + cc naar huurder" : ""} ✅`);
+  } catch (err) {
+    console.error(err);
+    toast("Mailen mislukte (verbinding) — PDF wel gedownload.", true);
+  }
 });
 
-// ===== PDF layout helpers =====
+// ====== PDF layout helpers ======
 function drawTwoCols(doc, leftPairs, rightPairs, x, y, colW, lineH) {
   doc.setFontSize(11); doc.setFont("helvetica","normal");
   leftPairs.forEach((row,i)=>{
@@ -415,36 +408,29 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   return y + lines.length * (fontSize + 2);
 }
 
-// ---------- Naam / wachtwoord gate (landing eerst) ----------
+// ====== Naam / wachtwoord gate (landing eerst) ======
 (async function initGate(){
   const gate   = document.getElementById("gate");
   const input  = document.getElementById("gateName");
   const btn    = document.getElementById("gateBtn");
   const err    = document.getElementById("gateErr");
 
-  // hulpfunctie
   async function sha256(str){
     const data = new TextEncoder().encode(str.trim().toLowerCase());
     const buf  = await crypto.subtle.digest("SHA-256", data);
     return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
   }
 
-  // bestaande queryparams
   const url = new URL(location.href);
   const sig   = url.searchParams.get("sig");
-  const qName = url.searchParams.get("name"); // optioneel voorgedrukte naam
+  const qName = url.searchParams.get("name");
 
-  // 3 modi:
-  // A) GEEN sig  -> landing: toon gate; na invullen redirecten met sig & name
-  // B) sig + name -> auto-unlock zonder nogmaals te vragen
-  // C) sig (zonder name) -> toon gate; check naam vs sig
-
-  // -- A) geen sig: toon gate & redirect met berekende sig
+  // A) GEEN sig: toon gate & redirect met berekende sig
   if (!sig) {
     document.body.classList.add("locked");
     gate.style.display = "";
     gate.classList.remove("hidden");
-    if (qName) input.value = qName; // als je ?name= had meegegeven
+    if (qName) input.value = qName;
 
     btn.addEventListener("click", go);
     input.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
@@ -453,32 +439,32 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
       const name = (input.value || "").trim();
       if (!name) { input.focus(); return; }
       const hash = await sha256(name);
-
-      // bouw nieuwe URL: neem bestaande params mee, voeg sig & name toe
       const next = new URL(location.href);
       next.searchParams.set("sig",  hash);
       next.searchParams.set("name", name);
-      // je kunt hier ook bv. order=123 laten staan; die blijft behouden
       location.href = next.toString();
     }
     return;
   }
 
-  // -- B) sig + name: auto-unlock
+  // B) sig + name: auto-unlock
   if (sig && qName) {
     const ok = (await sha256(qName)) === sig.toLowerCase();
     if (ok) {
-      // verberg gate, vul naamveld in formulier
       document.body.classList.remove("locked");
       if (gate) gate.remove();
       const nameField = document.querySelector('input[name="renterName"]');
       if (nameField && !nameField.value) nameField.value = qName.trim();
+
+      // >>> import na unlock
+      afterUnlock();
+      // <<<
       return;
     }
-    // als het niet klopt, val terug naar C (vraag opnieuw)
+    // anders val door naar C
   }
 
-  // -- C) sig zonder (geldige) name: vraag naam en verifieer
+  // C) sig zonder (geldige) name: vraag naam en verifieer
   document.body.classList.add("locked");
   gate.style.display = "";
   gate.classList.remove("hidden");
@@ -496,6 +482,10 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
       document.body.classList.remove("locked");
       const nameField = document.querySelector('input[name="renterName"]');
       if (nameField && !nameField.value) nameField.value = plain;
+
+      // >>> import na unlock
+      afterUnlock();
+      // <<<
     } else {
       err.classList.remove("hidden");
       setTimeout(()=> err.classList.add("hidden"), 2000);
@@ -504,167 +494,26 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   }
 })();
 
-// === PDF ophalen via Apps Script en inlezen met PDF.js ===
-async function fetchDrivePdfBase64({ endpoint, fileId, name, sig }) {
-  const url = new URL(endpoint);
-  url.searchParams.set('action', 'getpdf');
-  url.searchParams.set('fileId', fileId);
-  url.searchParams.set('name', name);
-  url.searchParams.set('sig',  sig);
-
-  const r = await fetch(url.toString(), { method: 'GET' });
-  const j = await r.json();
-  if (!j.ok) throw new Error(j.error || 'fetch failed');
-  return j; // { ok, filename, mimeType, dataBase64 }
-}
-
-function uint8FromBase64(b64) {
-  const bin = atob(b64);
-  const len = bin.length;
-  const bytes = new Uint8Array(len);
-  for (let i=0; i<len; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-
-async function importFromDriveIfParams() {
-  const params = new URLSearchParams(location.search);
-  const fileId = params.get('fileId'); // <-- Drive fileId in je link
-  const name   = (params.get('name') || '').trim();
-  const sig    = (params.get('sig')  || '').trim();
-  if (!fileId || !name || !sig) return;
-
-  // pdf.js worker
-  if (window.pdfjsLib) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
-  }
-
-  try {
-    const ENDPOINT = "PAK_HIER_JE_APPS_SCRIPT_WEBAPP_URL"; // <-- invullen
-    const res = await fetchDrivePdfBase64({ endpoint: ENDPOINT, fileId, name, sig });
-    const bytes = uint8FromBase64(res.dataBase64);
-
-    const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
-
-    let text = "";
-    for (let p = 1; p <= doc.numPages; p++) {
-      const page = await doc.getPage(p);
-      const tc = await page.getTextContent();
-      text += tc.items.map(t => t.str).join("\n") + "\n";
-    }
-
-    // Hergebruik je bestaande parsers:
-    fillDatesFromText(text);
-    fillRenterFromText(text);
-    const rows = parseBooqableItems(text);
-    if (rows.length) {
-      rows.forEach(r => addRow(r));
-      toast(`Gearlijst geïmporteerd (${rows.length} regels)`);
-    } else {
-      toast("PDF geladen, maar geen items herkend.", true);
-    }
-  } catch (e) {
-    console.error(e);
-    toast("Kon de PDF niet ophalen (Drive).", true);
-  }
-}
-
-// ---- Parsers (zoals eerder gegeven) ----
-function parseBooqableItems(txt) {
-  const lines = txt.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-  const out = [];
-  const re = /^(\d+)\s*x\s+(.+?)\s+(?:\d+\s+day|day|days|\d+\s+days)\b/i;
-  for (const ln of lines) {
-    const m = ln.match(re);
-    if (m) {
-      const qty = parseInt(m[1], 10) || 1;
-      const name = m[2].replace(/\s+€.*$/, "").trim();
-      out.push({ Item: name, Serial: "", Qty: qty, Condition: "" });
-    }
-  }
-  return out;
-}
-
-function fillDatesFromText(txt){
-  const pick = /Pickup\s+(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2})/i.exec(txt);
-  const ret  = /Return\s+(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2})/i.exec(txt);
-  const fmt = (d, t) => `${d}, ${t}`;
-  const fpP = document.getElementById("pickupDateTime")?._flatpickr;
-  const fpR = document.getElementById("returnDateTime")?._flatpickr;
-  if (pick && fpP) fpP.setDate(fmt(pick[1], pick[2]), true);
-  if (ret  && fpR) fpR.setDate(fmt(ret[1],  ret[2]),  true);
-}
-
-function fillRenterFromText(txt){
-  const email = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.exec(txt);
-  if (email) document.querySelector('input[name="email"]')?.value = email[0];
-  let name = "";
-  if (email) {
-    const before = txt.slice(0, email.index).split(/\r?\n/).pop() || "";
-    if (before && !/totaal|btw|insurance|verze/i.test(before)) name = before.trim();
-  }
-  if (!name) {
-    const nm = /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/.exec(txt);
-    if (nm) name = nm[1];
-  }
-  if (name) document.querySelector('input[name="renterName"]')?.value = name;
-}
-
-// ---------- Kleine bevestiging (toast) ----------
-function toast(msg, isError=false) {
-  let el = document.getElementById("tvl-toast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "tvl-toast";
-    el.style.cssText = `
-      position: fixed;
-      bottom: 28px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: ${isError ? "#b00020" : "#0e1116"};
-      color: #e9eef3;
-      border: 1px solid ${isError ? "#ff6b6b" : "#2c7be5"};
-      padding: 12px 18px;
-      border-radius: 10px;
-      font: 15px/1.4 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      box-shadow: 0 10px 25px rgba(0,0,0,.4);
-      opacity: 0;
-      transition: opacity .3s ease, transform .3s ease;
-      z-index: 99999;
-      pointer-events: none;
-    `;
-    document.body.appendChild(el);
-  }
-
-  el.textContent = msg;
-  el.style.background = isError ? "#b00020" : "#0e1116";
-  el.style.borderColor = isError ? "#ff6b6b" : "#2c7be5";
-  el.style.opacity = "1";
-  el.style.transform = "translateX(-50%) translateY(0)";
-
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => {
-    el.style.opacity = "0";
-    el.style.transform = "translateX(-50%) translateY(15px)";
-  }, 3000);
-}
-
-const DRIVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbzd3nbFw89V-Ac4YYXh6OCMHLYIHx58tHk86pmVYAugSiS4YLFZEEhbQhiiMZezDoQ/exec";
+// ====== PDF import uit Drive + parsing ======
+const DRIVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbzd3nbFw89V-Ac4YYXh6OCMHLYIHx58tHk86pmVYAugSiS4YLFZEEhbQhiiMZezDoQ/exec"; // <--- PAS AAN (GET ?file=...)
 
 async function afterUnlock(){
-  // 1) lees order param
   const url = new URL(location.href);
   const order = url.searchParams.get("order"); // bv "contract-228.pdf"
-  if (!order) return; // niets te importeren
+  if (!order) return;
 
   try {
     toast("Gear-lijst laden…");
     const pdfAb = await fetchPdfFromDrive(order);
     const text  = await extractTextFromPdf(pdfAb);
-    const rows  = parseBooqableItems(text); // => [{Item, Serial, Qty, Condition}, ...]
+
+    // optioneel: autofill email/naam/datatums uit PDF-tekst
+    fillRenterFromText(text);
+    fillDatesFromText(text);
+
+    const rows  = parseBooqableItems(text);
     if (Array.isArray(rows) && rows.length){
-      // wis bestaande rows
-      document.querySelector("#itemsTable tbody").innerHTML = "";
+      itemsTbody.innerHTML = "";
       rows.forEach(addRow);
       toast(`Gear-lijst geïmporteerd (${rows.length} regels) ✅`);
     } else {
@@ -694,28 +543,61 @@ async function extractTextFromPdf(arrayBuffer){
   for (let p = 1; p <= pdf.numPages; p++){
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
-    const lines = content.items.map(it => it.str).join(" ");
+    const lines = content.items.map(it => it.str).join("\n");
     fullText += "\n" + lines;
   }
   return fullText;
 }
 
+// ---- Autofill helpers uit PDF-tekst (optioneel, werkt “best-effort”) ----
+function fillDatesFromText(txt){
+  const pick = /Pickup\s+(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2})/i.exec(txt);
+  const ret  = /Return\s+(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2})/i.exec(txt);
+  const fmt = (d, t) => `${d}, ${t}`;
+  const fpP = document.getElementById("pickupDateTime")?._flatpickr;
+  const fpR = document.getElementById("returnDateTime")?._flatpickr;
+  if (pick && fpP) fpP.setDate(fmt(pick[1], pick[2]), true);
+  if (ret  && fpR) fpR.setDate(fmt(ret[1],  ret[2]),  true);
+}
+
+function fillRenterFromText(txt){
+  const email = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.exec(txt);
+  if (email) document.querySelector('input[name="email"]')?.value = email[0];
+  let name = "";
+  if (email) {
+    const before = txt.slice(0, email.index).split(/\r?\n/).pop() || "";
+    if (before && !/totaal|btw|insurance|verze/i.test(before)) name = before.trim();
+  }
+  if (!name) {
+    const nm = /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/.exec(txt);
+    if (nm) name = nm[1];
+  }
+  if (name) document.querySelector('input[name="renterName"]')?.value = name;
+}
+
+// ---- Booqable items parser (pas eventueel aan aan jouw layout) ----
 function parseBooqableItems(text){
-  // Voorbeeldje: zoekt regels als "2x Itemnaam  |  Serial: ABC123"
-  // Pas aan op jouw PDF-tekst; eerst even console.log(text) om te zien hoe het eruit ziet.
   const rows = [];
   const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
 
   for (const line of lines){
-    // voorbeelden van patronen – KIES/PAK AAN:
-    // 1) "Qty Item — Serial"
-    let m = line.match(/^(\d+)\s*[xX]?\s+(.+?)\s+(?:Serial|S\/N|SN|ID)[:\s]+([A-Z0-9\-\/._]+)$/i);
+    // patroon 1: "2x Sony A7S III  day(s) ..." of "2 x ..."
+    let m = line.match(/^(\d+)\s*[xX]?\s+(.+?)\s+(?:\d+\s+day|day|days|\d+\s+days)\b/i);
+    if (m){
+      const qty = parseInt(m[1],10)||1;
+      const name = m[2].replace(/\s+€.*$/, "").trim();
+      rows.push({ Item: name, Serial: "", Qty: qty, Condition: "" });
+      continue;
+    }
+
+    // patroon 2: "2 Sony A7S III – Serial: ABC123"
+    m = line.match(/^(\d+)\s+(.+?)\s+(?:Serial|S\/N|SN|ID)[:\s]+([A-Z0-9\-\/._]+)$/i);
     if (m){
       rows.push({ Item: m[2], Serial: m[3], Qty: parseInt(m[1],10)||1, Condition: "" });
       continue;
     }
 
-    // 2) "Item (Serial: ... )  Qty: N"
+    // patroon 3: "Itemnaam (Serial: XYZ)  Qty: 2"
     m = line.match(/^(.+?)\s*\(.*?(?:Serial|S\/N)[:\s]+([^)]+)\)\s+Qty[:\s]+(\d+)/i);
     if (m){
       rows.push({ Item: m[1], Serial: m[2], Qty: parseInt(m[3],10)||1, Condition: "" });
