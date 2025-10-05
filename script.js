@@ -303,3 +303,91 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
     return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
   }
 })();
+// ---------- Naam / wachtwoord gate (landing eerst) ----------
+(async function initGate(){
+  const gate   = document.getElementById("gate");
+  const input  = document.getElementById("gateName");
+  const btn    = document.getElementById("gateBtn");
+  const err    = document.getElementById("gateErr");
+
+  // hulpfunctie
+  async function sha256(str){
+    const data = new TextEncoder().encode(str.trim().toLowerCase());
+    const buf  = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+
+  // bestaande queryparams
+  const url = new URL(location.href);
+  const sig   = url.searchParams.get("sig");
+  const qName = url.searchParams.get("name"); // optioneel voorgedrukte naam
+
+  // 3 modi:
+  // A) GEEN sig  -> landing: toon gate; na invullen redirecten met sig & name
+  // B) sig + name -> auto-unlock zonder nogmaals te vragen
+  // C) sig (zonder name) -> toon gate; check naam vs sig
+
+  // -- A) geen sig: toon gate & redirect met berekende sig
+  if (!sig) {
+    document.body.classList.add("locked");
+    gate.style.display = "";
+    gate.classList.remove("hidden");
+    if (qName) input.value = qName; // als je ?name= had meegegeven
+
+    btn.addEventListener("click", go);
+    input.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+
+    async function go(){
+      const name = (input.value || "").trim();
+      if (!name) { input.focus(); return; }
+      const hash = await sha256(name);
+
+      // bouw nieuwe URL: neem bestaande params mee, voeg sig & name toe
+      const next = new URL(location.href);
+      next.searchParams.set("sig",  hash);
+      next.searchParams.set("name", name);
+      // je kunt hier ook bv. order=123 laten staan; die blijft behouden
+      location.href = next.toString();
+    }
+    return;
+  }
+
+  // -- B) sig + name: auto-unlock
+  if (sig && qName) {
+    const ok = (await sha256(qName)) === sig.toLowerCase();
+    if (ok) {
+      // verberg gate, vul naamveld in formulier
+      document.body.classList.remove("locked");
+      if (gate) gate.remove();
+      const nameField = document.querySelector('input[name="renterName"]');
+      if (nameField && !nameField.value) nameField.value = qName.trim();
+      return;
+    }
+    // als het niet klopt, val terug naar C (vraag opnieuw)
+  }
+
+  // -- C) sig zonder (geldige) name: vraag naam en verifieer
+  document.body.classList.add("locked");
+  gate.style.display = "";
+  gate.classList.remove("hidden");
+  if (qName) input.value = qName;
+
+  btn.addEventListener("click", check);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") check(); });
+
+  async function check(){
+    const plain = (input.value || "").trim();
+    if (!plain) { input.focus(); return; }
+    const hash = await sha256(plain);
+    if (hash === sig.toLowerCase()){
+      gate.classList.add("hidden");
+      document.body.classList.remove("locked");
+      const nameField = document.querySelector('input[name="renterName"]');
+      if (nameField && !nameField.value) nameField.value = plain;
+    } else {
+      err.classList.remove("hidden");
+      setTimeout(()=> err.classList.add("hidden"), 2000);
+      input.select();
+    }
+  }
+})();
