@@ -1,3 +1,4 @@
+<script>
 "use strict";
 
 /* =========================
@@ -17,7 +18,9 @@ const DRIVE_ENDPOINT =
   "https://script.google.com/macros/s/AKfycbwOHc7ytcXLyi5D7HWrFha_hZbG5teEr9qFuprqLQ3h1OeePvkM0-LkYmbmgtafH1A/exec";
 const MAIL_ENDPOINT =
   "https://script.google.com/macros/s/AKfycbyHJT1WGcgujp2iBX36FZZB8sAbgyi6YNzQw4Q7uDkbS0-wYCK5LV_w2qVTkIdQl00/exec";
-const RESOLVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbyOhqN0eWDYycX3sw55Fx2Syd9HCcNIOcolgJlvfPbFc3vMk_QkJESltHG-Cde33zoe/exec"; // <-- jouw resolve-webapp
+const RESOLVE_ENDPOINT =
+  "https://script.google.com/macros/s/AKfycbyOhqN0eWDYycX3sw55Fx2Syd9HCcNIOcolgJlvfPbFc3vMk_QkJESltHG-Cde33zoe/exec";
+
 /* =========================
    Utils
    ========================= */
@@ -34,23 +37,22 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 function isValidEmail(s) {
   return typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
+
 // ——— validators / normalizers
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const NL_PHONE_RE = /^(?:\+31|0031|0)\s*6(?:[\s-]?\d){8}$/;
 
 function looksLikePerson(name){
   const s = (name||"").trim();
-  // Voorbeelden: "Pipo de Clown", "Jan van Dijk"
   return /^([A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+){0,2})$/.test(s);
 }
 function looksLikeCompany(s){
   s = (s||"").trim();
   if (!s) return false;
   if (EMAIL_RE.test(s) || NL_PHONE_RE.test(s)) return false;
-  // heuristieken: BV, B.V., VOF, NV, Studio, Media, Productions, Group etc. of ALLCAPS, of 1 woord + cijfer
   if (/\b(BV|B\.V\.|VOF|N\.?V\.?|Holding|Group|Studio|Media|Productions?|Creative|Events?)\b/i.test(s)) return true;
   if (/^[A-Z0-9&/'\-. ]{3,}$/.test(s) && s.split(" ").length <= 6) return true;
-  return s.split(" ").length <= 6; // milde fallback
+  return s.split(" ").length <= 6;
 }
 function normalizePhoneNL(raw){
   let s = (raw||"").replace(/[^\d+]/g,"");
@@ -60,7 +62,7 @@ function normalizePhoneNL(raw){
   return s;
 }
 
-// ——— gate input classificatie
+// gate input classificatie
 function classifyLoginInput(v){
   const s = (v||"").trim();
   if (EMAIL_RE.test(s)) return { type:"email", value:s };
@@ -70,14 +72,13 @@ function classifyLoginInput(v){
   return { type:"unknown", value:s };
 }
 
-// ——— “slim” setten: overschrijft ook foute waarden (tel/e-mail in naam/bedrijf)
+// “slim” setten: overschrijft ook foute waarden (tel/e-mail in naam/bedrijf)
 function setSmart(sel, val, validator){
   if (!val) return;
   const el = document.querySelector(sel);
   if (!el) return;
   const cur = (el.value||"").trim();
   const bad = !cur || (validator && !validator(cur));
-  // overschrijf als leeg of ‘duidelijk fout’ (bv. tel/e-mail in tekstvak)
   const clearlyWrong =
     /name|renter/i.test(sel)  ? (EMAIL_RE.test(cur) || NL_PHONE_RE.test(cur)) :
     /company/i.test(sel)      ? (EMAIL_RE.test(cur) || NL_PHONE_RE.test(cur)) :
@@ -116,16 +117,16 @@ function scoreTextMatch(txt, q){
 // kies de beste kandidaat op basis van PDF-inhoud, anders fallback naar nieuwste
 async function pickBestOrderByContent(cands, query){
   const q = normalizeForClient(query);
-  for (const c of cands){            // lijst is al nieuwste→oudste
+  for (const c of cands){
     try {
-      const ab = await fetchPdfFromDrive(c.name);    // je hebt deze al
-      const txt = await extractTextFromPdf(ab);      // heb je ook al
+      const ab = await fetchPdfFromDrive(c.name);
+      const txt = await extractTextFromPdf(ab);
       if (scoreTextMatch(txt, q) >= 0.65) return c.name;
     } catch {}
   }
-  // geen duidelijke match → pak de allernieuwste toch
   return cands[0]?.name || "";
 }
+
 // Mini toast
 function toast(msg, isError = false) {
   let el = document.getElementById("tvl-toast");
@@ -227,7 +228,6 @@ let fpPickup, fpReturn;
     ...common,
     defaultDate: rounded,
     minDate: rounded,
-    // juiste signatures
     onReady(selectedDates, _dateStr, instance) {
       const pick = instance?.selectedDates?.[0] || selectedDates?.[0] || rounded;
       hardenReturnCalendar(pick);
@@ -496,42 +496,42 @@ form?.addEventListener("submit", async (e) => {
 
   // 2) Mail
   try {
-  const ab = doc.output("arraybuffer");
-  const b64 = base64FromArrayBuffer(ab);
+    const ab = doc.output("arraybuffer");
+    const b64 = base64FromArrayBuffer(ab);
 
-  const res = await fetch(MAIL_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({
-      subject: `TVL Overdracht – ${safeProject} (${id})`,
-      body: `
-        <p>Nieuwe overdracht PDF.</p>
-        <ul>
-          <li><b>Formulier ID</b>: ${id}</li>
-          <li><b>Project</b>: ${data.project || ""}</li>
-          <li><b>Huurder</b>: ${data.renterName || ""}</li>
-          <li><b>Ophaal</b>: ${data.pickup || ""}</li>
-          <li><b>Retour</b>: ${data.return || ""}</li>
-        </ul>
-        <p>Bijlage: ${filename}</p>
-      `,
-      filename,
-      mimeType: "application/pdf",
-      attachmentBase64: b64,
-      cc: isValidEmail(data.email) ? data.email : "",
-      replyTo: isValidEmail(data.email) ? data.email : ""
-    })
-  });
+    const res = await fetch(MAIL_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        subject: `TVL Overdracht – ${safeProject} (${id})`,
+        body: `
+          <p>Nieuwe overdracht PDF.</p>
+          <ul>
+            <li><b>Formulier ID</b>: ${id}</li>
+            <li><b>Project</b>: ${data.project || ""}</li>
+            <li><b>Huurder</b>: ${data.renterName || ""}</li>
+            <li><b>Ophaal</b>: ${data.pickup || ""}</li>
+            <li><b>Retour</b>: ${data.return || ""}</li>
+          </ul>
+          <p>Bijlage: ${filename}</p>
+        `,
+        filename,
+        mimeType: "application/pdf",
+        attachmentBase64: b64,
+        cc: isValidEmail(data.email) ? data.email : "",
+        replyTo: isValidEmail(data.email) ? data.email : ""
+      })
+    });
 
-  const text = await res.text();      // <-- helpt debuggen
-  console.log("MAIL response:", res.status, text);
+    const debugText = await res.text();
+    console.log("MAIL response:", res.status, debugText);
 
-  if (!res.ok) throw new Error(`Mail endpoint HTTP ${res.status}`);
-  toast(`PDF gemaild naar info@tvlrental.nl${isValidEmail(data.email) ? " + cc naar huurder" : ""} ✅`);
-} catch (err) {
-  console.error(err);
-  toast("Mailen mislukte (verbinding of endpoint) — PDF wel gedownload.", true);
-}
+    if (!res.ok) throw new Error(`Mail endpoint HTTP ${res.status}`);
+    toast(`PDF gemaild naar info@tvlrental.nl${isValidEmail(data.email) ? " + cc naar huurder" : ""} ✅`);
+  } catch (err) {
+    console.error(err);
+    toast("Mailen mislukte (verbinding of endpoint) — PDF wel gedownload.", true);
+  }
 });
 
 /* =========================
@@ -574,7 +574,6 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
     return;
   }
 
-  // client-side normalizer (matcht server normalize grotendeels)
   function normalizeForClient(s){
     return s.toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -592,42 +591,39 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
   const sig   = url.searchParams.get("sig");
   const qName = url.searchParams.get("name");
 
- async function unlockWith(inputValue) {
-  // URL bijwerken
-  const hash = await sha256(inputValue);
-  const next = new URL(location.href);
-  next.searchParams.set("sig",  hash);
-  next.searchParams.set("name", inputValue);
-  history.replaceState(null, "", next.toString());
+  async function unlockWith(inputValue) {
+    // URL bijwerken
+    const hash = await sha256(inputValue);
+    const next = new URL(location.href);
+    next.searchParams.set("sig",  hash);
+    next.searchParams.set("name", inputValue);
+    history.replaceState(null, "", next.toString());
 
-  // overlay sluiten
-  document.body.classList.remove("locked");
+    // overlay sluiten
+    document.body.classList.remove("locked");
 
-  // ——— zet gate-invoer op het JUISTE veld
-  const kind = classifyLoginInput(inputValue);
+    // juiste veld invullen o.b.v. gate-invoer
+    const kind = classifyLoginInput(inputValue);
+    if (kind.type === "email") {
+      setSmart('input[name="email"]', kind.value, v => EMAIL_RE.test(v));
+    } else if (kind.type === "phone") {
+      setSmart('input[name="phone"]', kind.value, v => NL_PHONE_RE.test(v.replace(/\s+/g,"").replace(/-/g,"")));
+    } else if (kind.type === "person") {
+      setSmart('input[name="renterName"]', kind.value, v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
+    } else if (kind.type === "company" || kind.type === "unknown") {
+      setSmart('input[name="company"]', kind.value, v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
+    }
 
-  if (kind.type === "email") {
-    setSmart('input[name="email"]', kind.value, v => EMAIL_RE.test(v));
-  } else if (kind.type === "phone") {
-    setSmart('input[name="phone"]', kind.value, v => NL_PHONE_RE.test(v.replace(/\s+/g,"").replace(/-/g,"")));
-  } else if (kind.type === "person") {
-    setSmart('input[name="renterName"]', kind.value, v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
-  } else if (kind.type === "company" || kind.type === "unknown") {
-    // unknown → behandel als bedrijf (valt later te corrigeren door PDF-parser)
-    setSmart('input[name="company"]', kind.value, v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
+    (document.querySelector('input[name="renterName"]')
+      || document.querySelector('input[name="company"]')
+      || document.querySelector('input,select,textarea,button'))?.focus?.();
+
+    // signature canvas natrappen
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+
+    // importeren (indien ?order=...)
+    try { await afterUnlock(); } catch (e) { console.error(e); }
   }
-
-  // focus ergens bruikbaars
-  (document.querySelector('input[name="renterName"]')
-    || document.querySelector('input[name="company"]')
-    || document.querySelector('input,select,textarea,button'))?.focus?.();
-
-  // signature canvas natrappen
-  setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
-
-  // PDF import
-  try { await afterUnlock(); } catch (e) { console.error(e); }
-}
 
   // 1) Auto-unlock als sig+name al kloppen
   if (sig && qName && (await sha256(qName)) === sig.toLowerCase()) {
@@ -640,62 +636,57 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
   if (qName) input.value = qName;
 
   // 3) Door-knop: resolve naam/bedrijf -> order
- async function handleGo() {
-  const name = (input.value || "").trim();
-  if (!name) {
-    input.focus();
-    err?.classList.remove("hidden");
-    setTimeout(() => err?.classList.add("hidden"), 1500);
-    return;
-  }
-
-  try {
-    toast("Zoeken naar jouw order…");
-    const q = normalizeForClient(name);
-
-    // ✅ vraag kandidaten op (nieuwste eerst) – LET OP: search, niet query
-    const r = await fetch(RESOLVE_ENDPOINT + "?search=" + encodeURIComponent(q) + "&limit=50");
-    if (!r.ok) throw new Error("resolve HTTP " + r.status);
-    const js = await r.json();
-
-    if (!js.ok || !Array.isArray(js.items) || js.items.length === 0) {
-      toast(`Geen PDF-kandidaten gevonden voor “${name}”.`, true);
+  async function handleGo() {
+    const name = (input.value || "").trim();
+    if (!name) {
+      input.focus();
       err?.classList.remove("hidden");
-      setTimeout(() => err?.classList.add("hidden"), 2500);
+      setTimeout(() => err?.classList.add("hidden"), 1500);
       return;
     }
 
-    // ✅ check inhoud van kandidaten en kies beste (of fallback naar nieuwste)
-    const order = await pickBestOrderByContent(js.items, name);
-    if (!order) {
-      toast("Kon geen geschikte PDF kiezen.", true);
-      return;
+    try {
+      toast("Zoeken naar jouw order…");
+      const q = normalizeForClient(name);
+
+      const r = await fetch(RESOLVE_ENDPOINT + "?search=" + encodeURIComponent(q) + "&limit=50");
+      if (!r.ok) throw new Error("resolve HTTP " + r.status);
+      const js = await r.json();
+
+      if (!js.ok || !Array.isArray(js.items) || js.items.length === 0) {
+        toast(`Geen PDF-kandidaten gevonden voor “${name}”.`, true);
+        err?.classList.remove("hidden");
+        setTimeout(() => err?.classList.add("hidden"), 2500);
+        return;
+      }
+
+      const order = await pickBestOrderByContent(js.items, name);
+      if (!order) { toast("Kon geen geschikte PDF kiezen.", true); return; }
+
+      const next = new URL(location.href);
+      next.searchParams.set("order", order);
+      next.searchParams.set("name",  name);
+      history.replaceState(null, "", next.toString());
+
+      await unlockWith(name);
+    } catch (e) {
+      console.error(e);
+      toast("Zoeken mislukt (verbinding).", true);
     }
-
-    // schrijf keuze in URL en ga door met de normale flow
-    const next = new URL(location.href);
-    next.searchParams.set("order", order);
-    next.searchParams.set("name",  name);
-    history.replaceState(null, "", next.toString());
-
-    await unlockWith(name);
-  } catch (e) {
-    console.error(e);
-    toast("Zoeken mislukt (verbinding).", true);
   }
-}
 
   btn.addEventListener("click", handleGo);
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); handleGo(); }
   });
 })();
+
 /* =========================
    PDF import uit Drive + parsing
    ========================= */
 async function afterUnlock() {
   const url = new URL(location.href);
-  const order = url.searchParams.get("order"); // bijv. "contract-228.pdf"
+  const order = url.searchParams.get("order");
   if (!order) return;
   if (!window.pdfjsLib) { console.warn("pdf.js ontbreekt — kan geen PDF uit Drive lezen."); return; }
 
@@ -703,8 +694,6 @@ async function afterUnlock() {
     toast("Gear-lijst laden…");
     const pdfAb = await fetchPdfFromDrive(order);
     const text  = await extractTextFromPdf(pdfAb);
-
-    // console.debug("DEBUG PDF text:\n", text); // <- aanzetten om te tunen
 
     fillRenterFromText(text);
     fillDatesFromText(text);
@@ -744,12 +733,11 @@ async function extractTextFromPdf(arrayBuffer){
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
 
-    // groepeer tekstitems per Y-rij
     const rows = {};
     for (const it of content.items){
       const t = it.transform;
       const x = t[4], y = t[5];
-      const key = Math.round(y/2)*2;         // Y-snapping
+      const key = Math.round(y/2)*2;
       (rows[key] ||= []).push({ x, str: it.str, w: it.width || 0 });
     }
 
@@ -759,27 +747,20 @@ async function extractTextFromPdf(arrayBuffer){
       let line = "";
       for (let i=0;i<segs.length;i++){
         const cur = segs[i];
-        line += (i===0 ? "" : gap(segs[i-1], cur)) + cur.str;
+        const dx = i===0 ? 0 : (segs[i].x - (segs[i-1].x + (segs[i-1].w||0)));
+        line += (i===0 ? "" : (dx>40?"    ":dx>20?"  ":" ")) + cur.str;
       }
       allLines.push(line.replace(/\u00A0/g," ").replace(/\s{2,}/g," ").trim());
     }
     allLines.push("");
   }
   return allLines.join("\n");
-
-  // voeg extra spaties toe als het X-gat groot is (houd kolommen zichtbaar)
-  function gap(prev, cur){
-    const dx = cur.x - (prev.x + (prev.w || 0));
-    if (dx > 40) return "    ";   // groot gat → 4 spaties
-    if (dx > 20) return "  ";     // medium → 2 spaties
-    return " ";                   // klein → 1 spatie
-  }
 }
 
 /* ==== Normalizer ==== */
 function norm(s){
   return (s||"")
-    .replace(/\u00A0/g, " ")   // NBSP
+    .replace(/\u00A0/g, " ")
     .replace(/[’‘]/g,"'")
     .replace(/[“”]/g,'"')
     .replace(/×/g,"x")
@@ -789,67 +770,45 @@ function norm(s){
 }
 
 /* ==== Velden uit PDF kop (bedrijf/naam/e-mail/telefoon) ==== */
-function setIfEmpty(sel, val) {
-  if (!val) return;
-  const el = document.querySelector(sel);
-  if (el && !el.value) el.value = val.trim();
-}
-
 function fillRenterFromText(txt) {
   if (!txt) return;
 
-  // We focussen op het bovenste stuk waar klantgegevens staan
   const head = txt.slice(0, 2500);
 
-  // ——— Email
-  const emailMatch = head.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
+  // Email
+  const emailMatch = head.match(EMAIL_RE);
   const email = emailMatch ? emailMatch[0] : "";
 
-  // ——— Telefoon (zelfde regel, volgende regel, of elders in de kop)
-  // herkent: 06 12 34 56 78 • 06-12345678 • +31 6 1234 5678 • +31612345678
-  const phoneBlock = head.slice(
-    Math.max(0, head.toLowerCase().indexOf("phone")),
-    Math.max(0, head.toLowerCase().indexOf("phone")) + 120
-  );
+  // Telefoon
   const telRe = /(?:(?:\+31|0)\s*6[\s-]?\d(?:[\s-]?\d){7,8})/;
   let phone = "";
-
-  // 1) direct op/na "Phone"/"Telefoon"
+  const phoneIdx = head.toLowerCase().indexOf("phone");
+  const phoneBlock = phoneIdx >= 0 ? head.slice(phoneIdx, phoneIdx + 120) : "";
   const m1 = /(?:Phone|Telefoon)\s*[:\s]*([\s\S]{0,40})/i.exec(phoneBlock || "");
   if (m1) {
     const cand = (m1[1] || "").split(/\r?\n/)[0];
-    const mTel = telRe.exec(cand) || telRe.exec(head.slice(head.toLowerCase().indexOf("phone"), head.length));
+    const mTel = telRe.exec(cand) || telRe.exec(head.slice(phoneIdx >= 0 ? phoneIdx : 0));
     if (mTel) phone = mTel[0];
   }
-  // 2) elders in de kop
   if (!phone) {
     const mTelAny = telRe.exec(head);
     if (mTelAny) phone = mTelAny[0];
   }
   phone = phone.replace(/\s{2,}/g, " ").trim();
 
-  // ——— Pak regels rondom de e-mail (meestal staat naam/bedrijf vlakbij)
+  // Regels rond e-mail
   let around = head;
   if (emailMatch) {
     const i = emailMatch.index;
-    const start = Math.max(0, i - 500);
-    const end = Math.min(head.length, i + 500);
-    around = head.slice(start, end);
+    around = head.slice(Math.max(0, i - 500), Math.min(head.length, i + 500));
   }
-  const lines = around
-    .split(/\r?\n/)
-    .map(s => s.replace(/\u00A0/g, " ").trim())
-    .filter(Boolean);
+  const lines = around.split(/\r?\n/).map(s => s.replace(/\u00A0/g, " ").trim()).filter(Boolean);
 
-  // Zoek het mini-blokje boven de e-mail (typisch: Bedrijf, Naam, Adres… E-mail)
-  let company = "";
-  let name = "";
-
-  // Neem maximaal ~4 regels direct boven de e-mail als ‘blok’
+  // Company / Name candidates
+  let company = "", name = "";
   let above = [];
   if (emailMatch) {
     const headBefore = head.slice(0, emailMatch.index).split(/\r?\n/).map(s => s.trim());
-    // loop terug tot lege regel of 4 regels
     for (let i = headBefore.length - 1; i >= 0 && above.length < 6; i--) {
       const L = headBefore[i];
       if (!L) break;
@@ -857,82 +816,50 @@ function fillRenterFromText(txt) {
       if (/^\s*$/.test(headBefore[i-1] || "")) break;
     }
   } else {
-    // fallback: pak eerste 10 regels van het document
     above = head.split(/\r?\n/).slice(0, 10).map(s => s.trim()).filter(Boolean);
   }
 
-  // verwijder duidelijke labels
   const clean = (s) => s.replace(/^(company|bedrijf|organisation|organization|adres|address)\s*:?\s*/i, "");
-
   const block = above.map(clean).filter(Boolean);
 
-  // heuristiek: vaak is regel 1 bedrijf en regel 2 naam
   const capNameRe = /^([A-Z][a-z]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})$/;
-  // kies kandidaten die geen e-mail/prijs/labels zijn
   const candidates = block.filter(s =>
-    !/@/.test(s) &&
-    !/€|EUR|BTW|Invoice|Factuur/i.test(s) &&
-    s.length <= 60
+    !/@/.test(s) && !/€|EUR|BTW|Invoice|Factuur/i.test(s) && s.length <= 60
   );
 
-  // probeer bedrijf/naam uit kandidaten te halen
-  // strategie:
-  // 1) als er 2 nette korte regels boven e-mail staan: [bedrijf, naam]
-  // 2) als slechts één regel naam-achtig is → naam; andere kortere uppercase-ish → bedrijf
   if (candidates.length >= 2) {
     const first = candidates[0], second = candidates[1];
-
-    const looksLikeName1 = capNameRe.test(first);
-    const looksLikeName2 = capNameRe.test(second);
-
-    if (!looksLikeName1 && looksLikeName2) {
-      company = first;
-      name = second;
-    } else if (looksLikeName1 && !looksLikeName2) {
-      name = first;
-      company = second;
-    } else if (!looksLikeName1 && !looksLikeName2) {
-      // beide lijken geen naam → neem eerste als bedrijf, tweede als naam fallback
-      company = first;
-      name = second;
-    } else {
-      // beide lijken naam → neem eerste als naam; bedrijf onbekend
-      name = first;
-    }
+    const n1 = capNameRe.test(first), n2 = capNameRe.test(second);
+    if (!n1 && n2) { company = first; name = second; }
+    else if (n1 && !n2) { name = first; company = second; }
+    else if (!n1 && !n2) { company = first; name = second; }
+    else { name = first; }
   } else if (candidates.length === 1) {
-    // één regel: besluit of het een naam of een bedrijf is
     if (capNameRe.test(candidates[0])) name = candidates[0];
     else company = candidates[0];
   }
 
-  // ——— Veldjes invullen (alleen als leeg)
-  setIfEmpty('input[name="email"]', email);
-  setIfEmpty('input[name="renterName"]', name);
-  setIfEmpty('input[name="company"]', company);
-  setIfEmpty('input[name="phone"]', phone);
+  // Slim invullen / corrigeren
+  setSmart('input[name="email"]', email, v => EMAIL_RE.test(v));
+  setSmart('input[name="phone"]', phone, v => NL_PHONE_RE.test(v.replace(/\s+/g,"").replace(/-/g,"")));
+  setSmart('input[name="renterName"]', name, v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
+  setSmart('input[name="company"]', company, v => !EMAIL_RE.test(v) && !NL_PHONE_RE.test(v));
 }
+
 function fillDatesFromText(txt){
   if (!txt) return;
-
-  // NL/EN datum: 31-12-2025 of 31/12/2025; tijd 08:30 of 8:30
   const d = "(\\d{2}[-\\/]\\d{2}[-\\/]\\d{4})";
   const t = "(\\d{1,2}:\\d{2})";
   const rxPick = new RegExp(`(?:Pickup|Ophaal|Start)\\s+${d}\\s+${t}`, "i");
   const rxRet  = new RegExp(`(?:Return|Retour|Einde)\\s+${d}\\s+${t}`, "i");
-
   const mP = rxPick.exec(txt);
   const mR = rxRet.exec(txt);
-
   const fmt = (d, t) => `${d}, ${t}`;
-
   const fpP = document.getElementById("pickupDateTime")?._flatpickr;
   const fpR = document.getElementById("returnDateTime")?._flatpickr;
-
-  if (mP && fpP) fpP.setDate(fmt(mP[1], mP[2]), true);   // true = trigger change
+  if (mP && fpP) fpP.setDate(fmt(mP[1], mP[2]), true);
   if (mR && fpR) fpR.setDate(fmt(mR[1], mR[2]), true);
 }
-fillRenterFromText(text);
-if (typeof fillDatesFromText === "function") fillDatesFromText(text);
 
 /* ==== Sterke multi-pass item parser (Booqable-achtig) ==== */
 function parseBooqableItems(rawText){
@@ -944,34 +871,25 @@ function parseBooqableItems(rawText){
 
   const push = (Item, Serial="", Qty=1, Condition="")=>{
     if (!Item) return;
-    // strip prijs- of eurostaarten
     Item = Item.replace(/\s+€.*$/,"").replace(/\s+EUR.*$/i,"").trim();
     rows.push({ Item, Serial: (Serial||"").trim(), Qty: Number(Qty)||1, Condition: (Condition||"").trim() });
   };
 
-  // — A: "2 x Aputure 600D Pro ... 1 day/dagen/weken"
   for (const line of lines){
     const m = line.match(/^(?<qty>\d+)\s*(?:x|×)?\s+(?<item>.+?)\s+(?:\d+\s*)?(?:day|days|dag|dagen|week|weken)\b/i);
     if (m){ push(m.groups.item, "", m.groups.qty); }
   }
-
-  // — B: "Item … Qty: 2" of "Item … Aantal: 2"
   for (const line of lines){
     const m = line.match(/^(?<item>.+?)\s+(?:Qty|Aantal)\s*[: ]\s*(?<qty>\d+)\b/i);
     if (m){ push(m.groups.item, "", m.groups.qty); }
   }
-
-  // — C: Zelfde regel met serial
   for (const line of lines){
     const m = line.match(/^(?<qty>\d+)?\s*(?:x|×)?\s*(?<item>.+?)\s+(?:Serial|S\/N|SN|Serienummer|ID|Asset|Barcode)\s*[:# ]\s*(?<sn>[A-Z0-9\-\/._]+)/i);
     if (m){ push(m.groups.item, m.groups.sn, m.groups.qty||1); }
   }
-
-  // — D: Tabel-achtige regels (meerdere kolommen door grote gaten → ≥3 spaties)
   for (const line of lines){
     const cols = line.split(/\s{3,}/).map(c=>c.trim());
     if (cols.length >= 3){
-      // kies de langste kolom als item; een zuiver nummer als qty
       let qtyCol = cols.find(c => /^\d+$/.test(c));
       if (qtyCol){
         const itemCol = cols.slice().sort((a,b)=>b.length-a.length)[0];
@@ -979,8 +897,6 @@ function parseBooqableItems(rawText){
       }
     }
   }
-
-  // — E: Item gevolgd door aparte "Qty/Aantal" op volgende regel
   if (!rows.length){
     for (let i=0;i<lines.length-1;i++){
       const l1 = lines[i], l2 = lines[i+1];
@@ -988,8 +904,6 @@ function parseBooqableItems(rawText){
       if (m && !/total|totaal|sum|subtotal/i.test(l1)) push(l1, "", m[1]);
     }
   }
-
-  // — F: Serial op volgende regel
   for (let i=0;i<rows.length;i++){
     if (rows[i].Serial) continue;
     const next = lines.find(l => /(?:Serial|S\/N|SN|Serienummer)\s*[:# ]\s*[A-Z0-9\-\/._]+/i.test(l));
@@ -998,8 +912,6 @@ function parseBooqableItems(rawText){
       if (m) rows[i].Serial = m[1];
     }
   }
-
-  // — G: Dedupe (merge op Item+Serial)
   const map = new Map();
   for (const r of rows){
     const key = (r.Item.toLowerCase()+"|"+(r.Serial||"").toLowerCase());
@@ -1008,3 +920,4 @@ function parseBooqableItems(rawText){
   }
   return [...map.values()];
 }
+</script>
