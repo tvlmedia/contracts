@@ -658,7 +658,10 @@ function fillDatesFromText(txt) {
 
 function fillRenterFromText(txt) {
   const email = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.exec(txt);
-  if (email) document.querySelector('input[name="email"]')?.value = email[0];
+
+  const emailEl = document.querySelector('input[name="email"]');
+  if (email && emailEl) emailEl.value = email[0];
+
   let name = "";
   if (email) {
     const before = txt.slice(0, email.index).split(/\r?\n/).pop() || "";
@@ -668,7 +671,9 @@ function fillRenterFromText(txt) {
     const nm = /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/.exec(txt);
     if (nm) name = nm[1];
   }
-  if (name) document.querySelector('input[name="renterName"]')?.value = name;
+
+  const nameEl = document.querySelector('input[name="renterName"]');
+  if (name && nameEl) nameEl.value = name;
 }
 
 function parseBooqableItems(text) {
