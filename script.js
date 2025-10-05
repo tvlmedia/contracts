@@ -17,7 +17,7 @@ const DRIVE_ENDPOINT =
   "https://script.google.com/macros/s/AKfycbwOHc7ytcXLyi5D7HWrFha_hZbG5teEr9qFuprqLQ3h1OeePvkM0-LkYmbmgtafH1A/exec";
 const MAIL_ENDPOINT =
   "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLjDBKd9uA_nV_cED5o0Sy8OEhl7th0bqhoij4uWE_yrwdZwkOa7ZH0cVcm4yRGiIxqqknMAjb_3vZEqsOxoxCpclWWcHBgDCczpKMJ5wjIL45C-Zu0XToFfUtvvU3P1GrFHurLUZveSnMYkLNpmtfiKKjmTNKJGMN7oA1GfCCKBvYxtAIRxBGAG8_WcaIchGpIpbxQ3rErd-1Wx-DZer8N3IkRW9qu9r3aPq3NMntO2rsgcCWPaauem6tMLs100MW_ukw5xV3am4-oesGLpqbVcklJBkNj9nOgEW4N5MGma6Q9VooYd3Xtx4d0pfw&lib=MeWuCCcpF7n6CEzeDUYALnNbD0KRScYky";
-
+const RESOLVE_ENDPOINT = "https://script.google.com/macros/s/AKfycbyOhqN0eWDYycX3sw55Fx2Syd9HCcNIOcolgJlvfPbFc3vMk_QkJESltHG-Cde33zoe/exec"; // <-- jouw resolve-webapp
 /* =========================
    Utils
    ========================= */
@@ -474,7 +474,7 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
 }
 
 /* =========================
-   Gate (naam/wachtwoord)
+   Gate (naam/wachtwoord) + resolver
    ========================= */
 (async function initGate() {
   const gate  = document.getElementById("gate");
@@ -487,9 +487,17 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
     return;
   }
 
+  // client-side normalizer (matcht server normalize grotendeels)
+  function normalizeForClient(s){
+    return s.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+
   async function sha256(str) {
     const data = new TextEncoder().encode(str.trim().toLowerCase());
-    const buf = await crypto.subtle.digest("SHA-256", data);
+    const buf  = await crypto.subtle.digest("SHA-256", data);
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
   }
 
@@ -498,31 +506,39 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
   const qName = url.searchParams.get("name");
 
   async function unlockWith(name) {
+    // zet (of ververs) sig+name in URL
     const hash = await sha256(name);
     const next = new URL(location.href);
     next.searchParams.set("sig",  hash);
     next.searchParams.set("name", name);
     history.replaceState(null, "", next.toString());
 
-    document.body.classList.remove("locked"); // overlay sluiten
+    // overlay sluiten
+    document.body.classList.remove("locked");
 
+    // naam invullen + focus
     const nameField = document.querySelector('input[name="renterName"]');
     if (nameField && !nameField.value) nameField.value = name.trim();
     (nameField || document.querySelector('input,select,textarea,button'))?.focus?.();
 
+    // signature canvas natrappen
     setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
 
+    // indien ?order=... aanwezig is -> importeren
     try { await afterUnlock(); } catch (e) { console.error(e); }
   }
 
+  // 1) Auto-unlock als sig+name al kloppen
   if (sig && qName && (await sha256(qName)) === sig.toLowerCase()) {
     await unlockWith(qName);
     return;
   }
 
+  // 2) Gate tonen
   document.body.classList.add("locked");
   if (qName) input.value = qName;
 
+  // 3) Door-knop: resolve naam/bedrijf -> order
   async function handleGo() {
     const name = (input.value || "").trim();
     if (!name) {
@@ -531,7 +547,34 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
       setTimeout(() => err?.classList.add("hidden"), 1500);
       return;
     }
-    await unlockWith(name);
+
+    try {
+      toast("Zoeken naar jouw order…");
+      const q = normalizeForClient(name);
+      const r = await fetch(RESOLVE_ENDPOINT + "?query=" + encodeURIComponent(q));
+      if (!r.ok) throw new Error("resolve HTTP " + r.status);
+      const json = await r.json();
+
+      if (!json.ok || !json.order) {
+        toast(`Geen match gevonden voor “${name}”.`, true);
+        err?.classList.remove("hidden");
+        setTimeout(() => err?.classList.add("hidden"), 2500);
+        return;
+      }
+
+      // Zet order + name + sig in URL zonder reload
+      const next = new URL(location.href);
+      next.searchParams.set("order", json.order);
+      next.searchParams.set("name",  name);
+      if (json.sig) next.searchParams.set("sig", json.sig);
+      history.replaceState(null, "", next.toString());
+
+      // Ga door
+      await unlockWith(name);
+    } catch (e) {
+      console.error(e);
+      toast("Zoeken mislukt (verbinding).", true);
+    }
   }
 
   btn.addEventListener("click", handleGo);
@@ -539,7 +582,6 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
     if (e.key === "Enter") { e.preventDefault(); handleGo(); }
   });
 })();
-
 /* =========================
    PDF import uit Drive + parsing
    ========================= */
