@@ -130,3 +130,9 @@ select:focus{ border-color:#2f7df0; box-shadow:0 0 0 3px rgb(47 125 240 / .2); }
 .hidden { display:none; }
 .locked .container { filter: blur(2px); pointer-events:none; user-select:none; }
 /* gate styles heb je al; laat die zo */
+/* Gate standaard uit, behalve wanneer body.locked is */
+#gate { display: none; }
+.locked #gate { display: grid; }
+
+/* optioneel: pagina “disable’en” terwijl locked */
+.locked .container { filter: blur(2px); pointer-events:none; user-select:none; }
