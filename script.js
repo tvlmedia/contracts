@@ -494,37 +494,39 @@ form?.addEventListener("submit", async (e) => {
   // 1) Download
   doc.save(filename);
 
-  // 2) Mail
-  try {
-  const ab = doc.output("arraybuffer");
+ // 2) Mail
+try {
+  const ab  = doc.output("arraybuffer");
   const b64 = base64FromArrayBuffer(ab);
+
+  const payload = {
+    subject: `TVL Overdracht – ${safeProject} (${id})`,
+    body: `
+      <p>Nieuwe overdracht PDF.</p>
+      <ul>
+        <li><b>Formulier ID</b>: ${id}</li>
+        <li><b>Project</b>: ${data.project || ""}</li>
+        <li><b>Huurder</b>: ${data.renterName || ""}</li>
+        <li><b>Ophaal</b>: ${data.pickup || ""}</li>
+        <li><b>Retour</b>: ${data.return || ""}</li>
+      </ul>
+      <p>Bijlage: ${filename}</p>
+    `,
+    filename,
+    mimeType: "application/pdf",
+    attachmentBase64: b64,
+    cc: isValidEmail(data.email) ? data.email : "",
+    replyTo: isValidEmail(data.email) ? data.email : ""
+  };
 
   const res = await fetch(MAIL_ENDPOINT, {
     method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({
-      subject: `TVL Overdracht – ${safeProject} (${id})`,
-      body: `
-        <p>Nieuwe overdracht PDF.</p>
-        <ul>
-          <li><b>Formulier ID</b>: ${id}</li>
-          <li><b>Project</b>: ${data.project || ""}</li>
-          <li><b>Huurder</b>: ${data.renterName || ""}</li>
-          <li><b>Ophaal</b>: ${data.pickup || ""}</li>
-          <li><b>Retour</b>: ${data.return || ""}</li>
-        </ul>
-        <p>Bijlage: ${filename}</p>
-      `,
-      filename,
-      mimeType: "application/pdf",
-      attachmentBase64: b64,
-      cc: isValidEmail(data.email) ? data.email : "",
-      replyTo: isValidEmail(data.email) ? data.email : ""
-    })
+    headers: { "Content-Type": "application/json" }, // ✅ belangrijk
+    body: JSON.stringify(payload)
   });
 
-  const text = await res.text();      // <-- helpt debuggen
-  console.log("MAIL response:", res.status, text);
+  const debugText = await res.text();
+  console.log("MAIL response:", res.status, debugText);
 
   if (!res.ok) throw new Error(`Mail endpoint HTTP ${res.status}`);
   toast(`PDF gemaild naar info@tvlrental.nl${isValidEmail(data.email) ? " + cc naar huurder" : ""} ✅`);
@@ -798,122 +800,91 @@ function setIfEmpty(sel, val) {
 function fillRenterFromText(txt) {
   if (!txt) return;
 
-  // We focussen op het bovenste stuk waar klantgegevens staan
-  const head = txt.slice(0, 2500);
+  const head = txt.slice(0, 4000); // focus op bovenkant
 
-  // ——— Email
-  const emailMatch = head.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
+  // — Email (meest betrouwbaar anker)
+  const emailMatch = head.match(EMAIL_RE);
   const email = emailMatch ? emailMatch[0] : "";
 
-  // ——— Telefoon (zelfde regel, volgende regel, of elders in de kop)
-  // herkent: 06 12 34 56 78 • 06-12345678 • +31 6 1234 5678 • +31612345678
-  const phoneBlock = head.slice(
-    Math.max(0, head.toLowerCase().indexOf("phone")),
-    Math.max(0, head.toLowerCase().indexOf("phone")) + 120
-  );
-  const telRe = /(?:(?:\+31|0)\s*6[\s-]?\d(?:[\s-]?\d){7,8})/;
-  let phone = "";
+  // — Phone: labels + brede NL-herkenning (mobiel of vast)
+  // Voorbeelden: 06-12345678, 010 123 4567, +31 20 123 4567, +31612345678
+  const ANY_NL_PHONE =
+    /(?:(?:\+31|0031|0)\s*(?:\d[\s-]?){8,10}\d)/; // 9–11 cijfers incl. netnummer/mobiel
 
-  // 1) direct op/na "Phone"/"Telefoon"
-  const m1 = /(?:Phone|Telefoon)\s*[:\s]*([\s\S]{0,40})/i.exec(phoneBlock || "");
-  if (m1) {
-    const cand = (m1[1] || "").split(/\r?\n/)[0];
-    const mTel = telRe.exec(cand) || telRe.exec(head.slice(head.toLowerCase().indexOf("phone"), head.length));
-    if (mTel) phone = mTel[0];
+  // Probeer eerst “Phone/Telefoon” blok(ken)
+  function findLabeledPhone(block) {
+    const m = /(?:Phone|Telefoon|Tel\.?)\s*[:\s]*([\s\S]{0,60})/i.exec(block || "");
+    if (!m) return "";
+    const candidateLine = (m[1] || "").split(/\r?\n/)[0];
+    const mTel = ANY_NL_PHONE.exec(candidateLine) || ANY_NL_PHONE.exec(block);
+    return mTel ? mTel[0] : "";
   }
-  // 2) elders in de kop
+
+  let phone = "";
+  const idxPhone = head.toLowerCase().indexOf("phone");
+  const idxTel   = head.toLowerCase().indexOf("telefoon");
+  if (idxPhone >= 0) phone = findLabeledPhone(head.slice(idxPhone, idxPhone + 160));
+  if (!phone && idxTel >= 0) phone = findLabeledPhone(head.slice(idxTel, idxTel + 160));
   if (!phone) {
-    const mTelAny = telRe.exec(head);
-    if (mTelAny) phone = mTelAny[0];
+    // laatste redmiddel: overal binnen de kop.
+    const mAny = ANY_NL_PHONE.exec(head);
+    if (mAny) phone = mAny[0];
   }
   phone = phone.replace(/\s{2,}/g, " ").trim();
 
-  // ——— Pak regels rondom de e-mail (meestal staat naam/bedrijf vlakbij)
-  let around = head;
-  if (emailMatch) {
+  // — Company / Name
+  // 1) Probeer gelabelde regels
+  function byLabel(labelRe) {
+    const m = labelRe.exec(head);
+    if (!m) return "";
+    return m[1].trim();
+  }
+  let company =
+    byLabel(/(?:Company|Bedrijf|Organisation|Organization)\s*[:\s]*([^\n\r]{1,80})/i);
+  let name =
+    byLabel(/(?:Name|Naam|Contact ?persoon|Contact)\s*[:\s]*([^\n\r]{1,80})/i);
+
+  // 2) Zo niet, kijk in de buurt van de e-mail (regel(s) erboven)
+  if ((!company || !name) && emailMatch) {
     const i = emailMatch.index;
-    const start = Math.max(0, i - 500);
-    const end = Math.min(head.length, i + 500);
-    around = head.slice(start, end);
-  }
-  const lines = around
-    .split(/\r?\n/)
-    .map(s => s.replace(/\u00A0/g, " ").trim())
-    .filter(Boolean);
-
-  // Zoek het mini-blokje boven de e-mail (typisch: Bedrijf, Naam, Adres… E-mail)
-  let company = "";
-  let name = "";
-
-  // Neem maximaal ~4 regels direct boven de e-mail als ‘blok’
-  let above = [];
-  if (emailMatch) {
-    const headBefore = head.slice(0, emailMatch.index).split(/\r?\n/).map(s => s.trim());
-    // loop terug tot lege regel of 4 regels
-    for (let i = headBefore.length - 1; i >= 0 && above.length < 6; i--) {
-      const L = headBefore[i];
+    const before = head.slice(0, i).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const block = [];
+    for (let k = before.length - 1; k >= 0 && block.length < 6; k--) {
+      const L = before[k];
       if (!L) break;
-      above.unshift(L);
-      if (/^\s*$/.test(headBefore[i-1] || "")) break;
+      block.unshift(L);
+      if (/^\s*$/.test(before[k-1] || "")) break;
     }
-  } else {
-    // fallback: pak eerste 10 regels van het document
-    above = head.split(/\r?\n/).slice(0, 10).map(s => s.trim()).filter(Boolean);
+    const cleaned = block.map(s =>
+      s.replace(/^(company|bedrijf|organisation|organization|adres|address)\s*:?\s*/i, "")
+    ).filter(Boolean);
+
+    const capNameRe =
+      /^([A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+){0,2})$/;
+
+    const candidates = cleaned.filter(s =>
+      !/@/.test(s) && !/€|EUR|BTW|Invoice|Factuur/i.test(s) && s.length <= 60
+    );
+
+    if (candidates.length >= 2) {
+      const a = candidates[0], b = candidates[1];
+      const aName = capNameRe.test(a), bName = capNameRe.test(b);
+      if (!company && !aName) company = a;
+      if (!name && (bName || (!aName && !bName))) name = b;
+      if (!name && aName) name = a;
+      if (!company && !aName && !bName && candidates[0]) company = candidates[0];
+    } else if (candidates.length === 1) {
+      if (!name && capNameRe.test(candidates[0])) name = candidates[0];
+      else if (!company) company = candidates[0];
+    }
   }
 
-  // verwijder duidelijke labels
-  const clean = (s) => s.replace(/^(company|bedrijf|organisation|organization|adres|address)\s*:?\s*/i, "");
-
-  const block = above.map(clean).filter(Boolean);
-
-  // heuristiek: vaak is regel 1 bedrijf en regel 2 naam
-  const capNameRe = /^([A-Z][a-z]+(?:\s+(?:van|de|der|den|von|da|di))?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})$/;
-  // kies kandidaten die geen e-mail/prijs/labels zijn
-  const candidates = block.filter(s =>
-    !/@/.test(s) &&
-    !/€|EUR|BTW|Invoice|Factuur/i.test(s) &&
-    s.length <= 60
-  );
-
-  // probeer bedrijf/naam uit kandidaten te halen
-  // strategie:
-  // 1) als er 2 nette korte regels boven e-mail staan: [bedrijf, naam]
-  // 2) als slechts één regel naam-achtig is → naam; andere kortere uppercase-ish → bedrijf
-  if (candidates.length >= 2) {
-    const first = candidates[0], second = candidates[1];
-
-    const looksLikeName1 = capNameRe.test(first);
-    const looksLikeName2 = capNameRe.test(second);
-
-    if (!looksLikeName1 && looksLikeName2) {
-      company = first;
-      name = second;
-    } else if (looksLikeName1 && !looksLikeName2) {
-      name = first;
-      company = second;
-    } else if (!looksLikeName1 && !looksLikeName2) {
-      // beide lijken geen naam → neem eerste als bedrijf, tweede als naam fallback
-      company = first;
-      name = second;
-    } else {
-      // beide lijken naam → neem eerste als naam; bedrijf onbekend
-      name = first;
-    }
-  } else if (candidates.length === 1) {
-    // één regel: besluit of het een naam of een bedrijf is
-    if (capNameRe.test(candidates[0])) name = candidates[0];
-    else company = candidates[0];
-  }
-
-  // ——— Veldjes invullen (alleen als leeg)
-  setIfEmpty('input[name="email"]', email);
-  setIfEmpty('input[name="renterName"]', name);
-  setIfEmpty('input[name="company"]', company);
-  setIfEmpty('input[name="phone"]', phone);
+  // — Zet waarden slim (mag bestaande fout overschrijven)
+  setSmart('input[name="email"]',      email,  v => EMAIL_RE.test(v));
+  setSmart('input[name="phone"]',      phone,  v => /\+?\d/.test(v)); // valideren doen we elders
+  setSmart('input[name="renterName"]', name,   v => !EMAIL_RE.test(v));
+  setSmart('input[name="company"]',    company,v => !EMAIL_RE.test(v));
 }
-function fillDatesFromText(txt){
-  if (!txt) return;
-
   // NL/EN datum: 31-12-2025 of 31/12/2025; tijd 08:30 of 8:30
   const d = "(\\d{2}[-\\/]\\d{2}[-\\/]\\d{4})";
   const t = "(\\d{1,2}:\\d{2})";
@@ -931,8 +902,7 @@ function fillDatesFromText(txt){
   if (mP && fpP) fpP.setDate(fmt(mP[1], mP[2]), true);   // true = trigger change
   if (mR && fpR) fpR.setDate(fmt(mR[1], mR[2]), true);
 }
-fillRenterFromText(text);
-if (typeof fillDatesFromText === "function") fillDatesFromText(text);
+
 
 /* ==== Sterke multi-pass item parser (Booqable-achtig) ==== */
 function parseBooqableItems(rawText){
