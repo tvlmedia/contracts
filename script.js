@@ -259,7 +259,7 @@ let fpPickup, fpReturn;
     return;
   }
 
-  // — helpers
+  // helpers
   const now = new Date();
   const roundedNow = new Date(now);
   roundedNow.setMinutes(Math.ceil(roundedNow.getMinutes() / 15) * 15, 0, 0);
@@ -285,95 +285,56 @@ let fpPickup, fpReturn;
     disableMobile: true
   };
 
-  // Ensure the return calendar can’t go before pickup,
-  // and if needed, auto-bump to either pickup+15min or next day 17:00 (whichever is later).
   function hardenReturnCalendar(pick) {
     if (!fpReturn || !pick) return;
-
     const minDay = midnight(pick);
     const minReturn = addMinutes(pick, 15);
     const target = new Date(Math.max(minReturn.getTime(), nextDay17(pick).getTime()));
-
     fpReturn.set("disable", [(date) => date < minDay]);
     fpReturn.set("minDate", pick);
-
     const current = fpReturn.selectedDates?.[0];
     if (!current || current.getTime() < target.getTime()) {
-      // update without triggering onChange loop
       fpReturn.setDate(target, false);
     }
   }
 
- // 5b) flatpickr: zet default pickup = nu (15m afgerond) en return = volgende dag 17:00 (min. +15m)
-try {
-  const now = new Date();
-  const roundedNow = new Date(now);
-  roundedNow.setMinutes(Math.ceil(roundedNow.getMinutes() / 15) * 15, 0, 0);
-
-  const addMinutes = (d, mins) => {
-    const x = new Date(d);
-    x.setMinutes(x.getMinutes() + mins, 0, 0);
-    return x;
-  };
-  const nextDay17 = (d) => {
-    const x = new Date(d);
-    x.setDate(x.getDate() + 1);
-    x.setHours(17, 0, 0, 0);
-    return x;
-  };
-
+  // defaults
   const defaultPickup = roundedNow;
   const defaultReturn = new Date(
     Math.max(nextDay17(defaultPickup).getTime(), addMinutes(defaultPickup, 15).getTime())
   );
 
-  if (window.fpPickup?.setDate) window.fpPickup.setDate(defaultPickup, false);
-  if (window.fpReturn?.setDate) window.fpReturn.setDate(defaultReturn, false);
+  // 1) eerst return maken
+  fpReturn = flatpickr("#returnDateTime", {
+    ...common,
+    minDate: defaultPickup,
+    defaultDate: defaultReturn
+  });
 
-  // als flatpickr nog niet bestond: inputs alvast vullen (flatpickr pakt dit bij init op)
-  const fmt = (d) => d.toLocaleString("nl-NL", { hour12: false })
-                     .replace(/\s/, ", "); // “dd-mm-jjjj, HH:MM”
-  if (!window.fpPickup) document.getElementById("pickupDateTime").value = fmt(defaultPickup);
-  if (!window.fpReturn) document.getElementById("returnDateTime").value = fmt(defaultReturn);
-} catch {}
+  // 2) daarna pickup maken + koppeling
+  fpPickup = flatpickr("#pickupDateTime", {
+    ...common,
+    defaultDate: defaultPickup,
+    minDate: roundedNow,
+    onReady(selectedDates, _dateStr, instance) {
+      const pick = instance?.selectedDates?.[0] || defaultPickup;
+      hardenReturnCalendar(pick);
+    },
+    onChange(selectedDates) {
+      hardenReturnCalendar(selectedDates?.[0] || defaultPickup);
+    },
+    onValueUpdate(selectedDates) {
+      hardenReturnCalendar(selectedDates?.[0] || defaultPickup);
+    }
+  });
 
-/* =========================
-   Locaties dropdowns
-   ========================= */
-const ADDRESS_OFFICE = "Beek en Donk (Donkersvoorstestraat 3)";
+  // first pass
+  hardenReturnCalendar(fpPickup?.selectedDates?.[0] || defaultPickup);
 
-function syncLocation(mode) {
-  const modeSel = document.getElementById(mode + "Mode");
-  const wrap = document.getElementById(mode + "DeliveryWrap");
-  const input = document.getElementById(mode + "DeliveryInput");
-  const hidden = document.getElementById(mode + "Location");
-  if (!modeSel || !wrap || !input || !hidden) return;
-
-  const isDelivery = modeSel.value === "delivery";
-  wrap.classList.toggle("hidden", !isDelivery);
-  input.disabled = !isDelivery;
-  input.required = isDelivery;
-
-  if (isDelivery) {
-    hidden.value = (input.value || "").trim() || "Brengen – adres nog invullen";
-    requestAnimationFrame(() => input.focus());
-  } else {
-    input.value = "";
-    hidden.value = ADDRESS_OFFICE;
-  }
-}
-["pickup", "return"].forEach((m) => {
-  const sel = document.getElementById(m + "Mode");
-  const inp = document.getElementById(m + "DeliveryInput");
-  if (sel) sel.addEventListener("change", () => syncLocation(m));
-  if (inp) inp.addEventListener("input", () => syncLocation(m));
-  syncLocation(m);
-});
-
-form?.addEventListener("submit", () => {
-  syncLocation("pickup");
-  syncLocation("return");
-});
+  // expose
+  window.fpPickup = fpPickup;
+  window.fpReturn = fpReturn;
+})();
 
 /* =========================
    Items tabel
