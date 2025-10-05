@@ -41,7 +41,39 @@ function base64FromArrayBuffer(ab) {
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
   return btoa(binary);
 }
+function normalizeForClient(s){
+  return String(s||"").toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9\s@._&'/-]+/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
 
+// simpele score of de tekst bij de zoekterm past
+function scoreTextMatch(txt, q){
+  const t = normalizeForClient(txt);
+  const tokens = q.split(" ").filter(Boolean);
+  if (!tokens.length) return 0;
+  let hits = 0;
+  for (const tok of tokens) if (t.includes(tok)) hits++;
+  const emailBonus   = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/.test(t) ? 0.1 : 0;
+  const companyBonus = /(company|bedrijf|organization|invoice|factuur|klant)/.test(t) ? 0.1 : 0;
+  return Math.min(1, hits/tokens.length + emailBonus + companyBonus);
+}
+
+// kies de beste kandidaat op basis van PDF-inhoud, anders fallback naar nieuwste
+async function pickBestOrderByContent(cands, query){
+  const q = normalizeForClient(query);
+  for (const c of cands){            // lijst is al nieuwste→oudste
+    try {
+      const ab = await fetchPdfFromDrive(c.name);    // je hebt deze al
+      const txt = await extractTextFromPdf(ab);      // heb je ook al
+      if (scoreTextMatch(txt, q) >= 0.65) return c.name;
+    } catch {}
+  }
+  // geen duidelijke match → pak de allernieuwste toch
+  return cands[0]?.name || "";
+}
 // Mini toast
 function toast(msg, isError = false) {
   let el = document.getElementById("tvl-toast");
@@ -539,43 +571,50 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
   if (qName) input.value = qName;
 
   // 3) Door-knop: resolve naam/bedrijf -> order
-  async function handleGo() {
-    const name = (input.value || "").trim();
-    if (!name) {
-      input.focus();
+ async function handleGo() {
+  const name = (input.value || "").trim();
+  if (!name) {
+    input.focus();
+    err?.classList.remove("hidden");
+    setTimeout(() => err?.classList.add("hidden"), 1500);
+    return;
+  }
+
+  try {
+    toast("Zoeken naar jouw order…");
+    const q = normalizeForClient(name);
+
+    // ✅ vraag kandidaten op (nieuwste eerst) – LET OP: search, niet query
+    const r = await fetch(RESOLVE_ENDPOINT + "?search=" + encodeURIComponent(q) + "&limit=50");
+    if (!r.ok) throw new Error("resolve HTTP " + r.status);
+    const js = await r.json();
+
+    if (!js.ok || !Array.isArray(js.items) || js.items.length === 0) {
+      toast(`Geen PDF-kandidaten gevonden voor “${name}”.`, true);
       err?.classList.remove("hidden");
-      setTimeout(() => err?.classList.add("hidden"), 1500);
+      setTimeout(() => err?.classList.add("hidden"), 2500);
       return;
     }
 
-    try {
-      toast("Zoeken naar jouw order…");
-      const q = normalizeForClient(name);
-      const r = await fetch(RESOLVE_ENDPOINT + "?query=" + encodeURIComponent(q));
-      if (!r.ok) throw new Error("resolve HTTP " + r.status);
-      const json = await r.json();
-
-      if (!json.ok || !json.order) {
-        toast(`Geen match gevonden voor “${name}”.`, true);
-        err?.classList.remove("hidden");
-        setTimeout(() => err?.classList.add("hidden"), 2500);
-        return;
-      }
-
-      // Zet order + name + sig in URL zonder reload
-      const next = new URL(location.href);
-      next.searchParams.set("order", json.order);
-      next.searchParams.set("name",  name);
-      if (json.sig) next.searchParams.set("sig", json.sig);
-      history.replaceState(null, "", next.toString());
-
-      // Ga door
-      await unlockWith(name);
-    } catch (e) {
-      console.error(e);
-      toast("Zoeken mislukt (verbinding).", true);
+    // ✅ check inhoud van kandidaten en kies beste (of fallback naar nieuwste)
+    const order = await pickBestOrderByContent(js.items, name);
+    if (!order) {
+      toast("Kon geen geschikte PDF kiezen.", true);
+      return;
     }
+
+    // schrijf keuze in URL en ga door met de normale flow
+    const next = new URL(location.href);
+    next.searchParams.set("order", order);
+    next.searchParams.set("name",  name);
+    history.replaceState(null, "", next.toString());
+
+    await unlockWith(name);
+  } catch (e) {
+    console.error(e);
+    toast("Zoeken mislukt (verbinding).", true);
   }
+}
 
   btn.addEventListener("click", handleGo);
   input.addEventListener("keydown", (e) => {
