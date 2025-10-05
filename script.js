@@ -408,54 +408,72 @@ function drawParagraph(doc, text, x, y, maxW, fontSize=11) {
   return y + lines.length * (fontSize + 2);
 }
 
-// ====== Naam / wachtwoord gate ======
+// ====== Naam / wachtwoord gate (robust) ======
 (async function initGate(){
   const input = document.getElementById("gateName");
   const btn   = document.getElementById("gateBtn");
   const err   = document.getElementById("gateErr");
 
+  // SHA-256 met fallback (voor edgecases)
   async function sha256(str){
-    const data = new TextEncoder().encode(str.trim().toLowerCase());
-    const buf  = await crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    const norm = (str || "").trim().toLowerCase();
+    if (window.crypto && crypto.subtle) {
+      const data = new TextEncoder().encode(norm);
+      const buf  = await crypto.subtle.digest("SHA-256", data);
+      return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    }
+    // simpele fallback – puur client-side; server gebruikt deze niet
+    let h = 0; for (const ch of norm) h = (h<<5)-h + ch.charCodeAt(0) | 0;
+    return ("00000000"+(h>>>0).toString(16)).slice(-8);
   }
 
   const url   = new URL(location.href);
   const sig   = url.searchParams.get("sig");
   const qName = url.searchParams.get("name");
 
-  // A) geen sig → toon gate en redirect na invoer
+  // A) geen sig → gated landing; na invoer alleen query aanpassen
   if (!sig) {
     document.body.classList.add("locked");
     if (qName) input.value = qName;
+
     btn.addEventListener("click", go);
     input.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+
     async function go(){
-      const name = (input.value || "").trim();
-      if (!name) { input.focus(); return; }
-      const hash = await sha256(name);
-      const next = new URL(location.href);
-      next.searchParams.set("sig",  hash);
-      next.searchParams.set("name", name);
-      location.href = next.toString();
+      try {
+        const name = (input.value || "").trim();
+        if (!name) { input.focus(); return; }
+        const hash = await sha256(name);
+        const params = new URLSearchParams(location.search);
+        params.set("name", name);
+        params.set("sig",  hash);
+        // dit is het hele “trucje”: alleen de zoekstring veranderen
+        location.search = params.toString();
+      } catch (e) {
+        console.error(e);
+        err.textContent = "Kon niet doorgaan (rechten of cache). Vernieuw de pagina.";
+        err.classList.remove("hidden");
+      }
     }
     return;
   }
 
-  // B) sig + name → auto unlock
+  // B) sig + name → auto-unlock
   if (sig && qName && (await sha256(qName)) === sig.toLowerCase()) {
     document.body.classList.remove("locked");
     const nameField = document.querySelector('input[name="renterName"]');
     if (nameField && !nameField.value) nameField.value = qName.trim();
-    afterUnlock();
+    afterUnlock(); // eventueel contract importeren
     return;
   }
 
-  // C) sig zonder (geldige) name → vraag en verifieer
+  // C) sig maar (nog) geen geldige name → vraag opnieuw
   document.body.classList.add("locked");
   if (qName) input.value = qName;
+
   btn.addEventListener("click", check);
   input.addEventListener("keydown", e => { if (e.key === "Enter") check(); });
+
   async function check(){
     const plain = (input.value || "").trim();
     if (!plain) { input.focus(); return; }
