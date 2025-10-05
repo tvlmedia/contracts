@@ -521,21 +521,23 @@ function drawParagraph(doc, text, x, y, maxW, fontSize = 11) {
 }
 
 /* =========================
-   Gate (naam/wachtwoord) – no-reload, robuust
+   Gate (naam/wachtwoord)
    ========================= */
 (async function initGate() {
   const gate  = document.getElementById("gate");
-const input = gate?.querySelector("#gateName");
-const btn   = gate?.querySelector("#gateBtn");
-const err   = gate?.querySelector("#gateErr");
+  const input = gate?.querySelector("#gateName");
+  const btn   = gate?.querySelector("#gateBtn");
+  const err   = gate?.querySelector("#gateErr");
 
-  // Als gate ontbreekt, niks doen
-  if (!input || !btn) return;
+  if (!gate || !input || !btn) {
+    console.warn("Gate niet gevonden of incomplete markup:", { gate: !!gate, input: !!input, btn: !!btn });
+    return;
+  }
 
   async function sha256(str) {
     const data = new TextEncoder().encode(str.trim().toLowerCase());
     const buf = await crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
   }
 
   const url   = new URL(location.href);
@@ -543,52 +545,33 @@ const err   = gate?.querySelector("#gateErr");
   const qName = url.searchParams.get("name");
 
   async function unlockWith(name) {
-    // schrijf sig+name naar de URL (zonder reload)
     const hash = await sha256(name);
     const next = new URL(location.href);
-    next.searchParams.set("sig", hash);
+    next.searchParams.set("sig",  hash);
     next.searchParams.set("name", name);
     history.replaceState(null, "", next.toString());
 
-    // unlock UI
-    document.body.classList.remove("locked");
+    document.body.classList.remove("locked"); // <-- sluit overlay
 
-    // focus eerste veld
     const nameField = document.querySelector('input[name="renterName"]');
     if (nameField && !nameField.value) nameField.value = name.trim();
     (nameField || document.querySelector('input,select,textarea,button'))?.focus?.();
 
-    // signature canvas kan van breedte veranderen -> opnieuw resizen
-    setTimeout(() => {
-      try {
-        const canvas = document.getElementById("signaturePad");
-        if (canvas) {
-          const evt = new Event("resize");
-          window.dispatchEvent(evt);
-        }
-      } catch {}
-    }, 50);
-
-    // start PDF-import (als ?order=... aanwezig is)
-    try {
-      await afterUnlock();
-    } catch (e) {
-      console.error(e);
-    }
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+    try { await afterUnlock(); } catch (e) { console.error(e); }
   }
 
-  // 1) Directe unlock als sig+name al in URL staan en kloppen
   if (sig && qName && (await sha256(qName)) === sig.toLowerCase()) {
     await unlockWith(qName);
     return;
   }
 
-  // 2) Gate tonen (locked) en interactie aansluiten
   document.body.classList.add("locked");
   if (qName) input.value = qName;
 
   async function handleGo() {
     const name = (input.value || "").trim();
+    console.debug("Gate Doorgaan klik:", { name }); // debug
     if (!name) {
       input.focus();
       err?.classList.remove("hidden");
@@ -599,11 +582,8 @@ const err   = gate?.querySelector("#gateErr");
   }
 
   btn.addEventListener("click", handleGo);
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleGo();
-    }
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); handleGo(); }
   });
 })();
 
