@@ -355,7 +355,7 @@ form.addEventListener("submit", async (e) => {
   try {
     const ab = doc.output("arraybuffer");
     const b64 = base64FromArrayBuffer(ab);
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbyz3Yxfi_UmvyVo1qWYKiIGI4Z6lU0oCqSBSYn1bqBpOeqm3Q4gm746LuMp1uDsF3U/exec";
+const ENDPOINT = "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLjDBKd9uA_nV_cED5o0Sy8OEhl7th0bqhoij4uWE_yrwdZwkOa7ZH0cVcm4yRGiIxqqknMAjb_3vZEqsOxoxCpclWWcHBgDCczpKMJ5wjIL45C-Zu0XToFfUtvvU3P1GrFHurLUZveSnMYkLNpmtfiKKjmTNKJGMN7oA1GfCCKBvYxtAIRxBGAG8_WcaIchGpIpbxQ3rErd-1Wx-DZer8N3IkRW9qu9r3aPq3NMntO2rsgcCWPaauem6tMLs100MW_ukw5xV3am4-oesGLpqbVcklJBkNj9nOgEW4N5MGma6Q9VooYd3Xtx4d0pfw&lib=MeWuCCcpF7n6CEzeDUYALnNbD0KRScYky";
     
     await fetch(ENDPOINT, {
       method: "POST",
