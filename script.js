@@ -780,7 +780,7 @@ async function afterUnlock() {
   if (!order) return;
   if (!window.pdfjsLib) { console.warn("pdf.js ontbreekt — kan geen PDF uit Drive lezen."); return; }
 
-    try {
+  try {
     toast("Gear-lijst laden…");
     const pdfAb = await fetchPdfFromDrive(order);
     const text  = await extractTextFromPdf(pdfAb);
@@ -803,7 +803,7 @@ async function afterUnlock() {
       window.fpReturn.setDate(prevR, false);
     }
 
-    // — extra: her-tekenen zodat de input de huidige waarde zeker toont
+    // — extra: forceer redraw zodat de inputwaarden zichtbaar blijven
     if (window.fpPickup?.selectedDates?.[0]) window.fpPickup.setDate(window.fpPickup.selectedDates[0], false);
     if (window.fpReturn?.selectedDates?.[0]) window.fpReturn.setDate(window.fpReturn.selectedDates[0], false);
 
@@ -820,7 +820,7 @@ async function afterUnlock() {
     console.error(e);
     toast("Kon PDF niet laden of lezen.", true);
   }
-
+} // <<— BELANGRIJK: deze sluiting ontbrak
 async function fetchPdfFromDrive(filename){
   const res = await fetch(`${DRIVE_ENDPOINT}?file=` + encodeURIComponent(filename), {
     method: "GET",
