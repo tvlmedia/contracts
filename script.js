@@ -106,7 +106,32 @@ function logout(){
 
   // 4) reset locaties
   resetLocationsToOffice();
+  // 4b) kalenders terug naar nu(afgerond) en morgen 17:00
+  try {
+    const now = new Date();
+    const roundedNow = new Date(now);
+    roundedNow.setMinutes(Math.ceil(roundedNow.getMinutes() / 15) * 15, 0, 0);
 
+    const addMinutes = (d, mins) => {
+      const x = new Date(d);
+      x.setMinutes(x.getMinutes() + mins, 0, 0);
+      return x;
+    };
+    const nextDay17 = (d) => {
+      const x = new Date(d);
+      x.setDate(x.getDate() + 1);
+      x.setHours(17, 0, 0, 0);
+      return x;
+    };
+
+    const defaultPickup = roundedNow;
+    const defaultReturn = new Date(
+      Math.max(nextDay17(defaultPickup).getTime(), addMinutes(defaultPickup, 15).getTime())
+    );
+
+    if (window.fpPickup?.setDate) window.fpPickup.setDate(defaultPickup, false);
+    if (window.fpReturn?.setDate) window.fpReturn.setDate(defaultReturn, false);
+  } catch {}
   // 5) items leeg + handtekening wissen
   clearItemsTable();
   try { if (window.signaturePad) window.signaturePad.clear(); } catch {}
@@ -755,16 +780,34 @@ async function afterUnlock() {
   if (!order) return;
   if (!window.pdfjsLib) { console.warn("pdf.js ontbreekt — kan geen PDF uit Drive lezen."); return; }
 
-  try {
+    try {
     toast("Gear-lijst laden…");
     const pdfAb = await fetchPdfFromDrive(order);
     const text  = await extractTextFromPdf(pdfAb);
 
-    // console.debug("DEBUG PDF text:\n", text); // <- aanzetten om te tunen
+    // — onthoud huidige kalenderselecties
+    const prevP = window.fpPickup?.selectedDates?.[0] || null;
+    const prevR = window.fpReturn?.selectedDates?.[0] || null;
 
+    // — parse PDF en vul velden
     fillRenterFromText(text);
     fillDatesFromText(text);
 
+    // — als de parse niets zinnigs zette, herstel de oude waarden
+    const pickEl = document.getElementById("pickupDateTime");
+    const retEl  = document.getElementById("returnDateTime");
+    if (pickEl && (!pickEl.value || pickEl.value.trim() === "") && prevP && window.fpPickup) {
+      window.fpPickup.setDate(prevP, false);
+    }
+    if (retEl && (!retEl.value || retEl.value.trim() === "") && prevR && window.fpReturn) {
+      window.fpReturn.setDate(prevR, false);
+    }
+
+    // — extra: her-tekenen zodat de input de huidige waarde zeker toont
+    if (window.fpPickup?.selectedDates?.[0]) window.fpPickup.setDate(window.fpPickup.selectedDates[0], false);
+    if (window.fpReturn?.selectedDates?.[0]) window.fpReturn.setDate(window.fpReturn.selectedDates[0], false);
+
+    // — parse items
     const rows  = parseBooqableItems(text);
     if (Array.isArray(rows) && rows.length) {
       itemsTbody.innerHTML = "";
@@ -777,7 +820,6 @@ async function afterUnlock() {
     console.error(e);
     toast("Kon PDF niet laden of lezen.", true);
   }
-}
 
 async function fetchPdfFromDrive(filename){
   const res = await fetch(`${DRIVE_ENDPOINT}?file=` + encodeURIComponent(filename), {
@@ -1070,3 +1112,8 @@ function parseBooqableItems(rawText){
 }
 
 document.getElementById("btnLogout")?.addEventListener("click", logout);
+// Robuuste logout handler (blokkeert form-submit)
+document.getElementById("btnLogout")?.addEventListener("click", (e) => {
+  try { e.preventDefault(); e.stopPropagation(); } catch {}
+  logout();
+});
