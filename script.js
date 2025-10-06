@@ -85,28 +85,10 @@ function resetLocationsToOffice(){
   syncLocation("return");
 }
 
-function logout(){
-  // 1) bewaar (optioneel) laatst ingevoerde naam voor het gate-veld
-  const lastName = (document.querySelector('input[name="renterName"]')?.value || "").trim();
-
-  // 2) sluit popups
-  try { window.fpPickup?.close?.(); } catch {}
-  try { window.fpReturn?.close?.(); } catch {}
-
-  // 3) leeg contact & project
-  const fields = [
-    'input[name="renterName"]',
-    'input[name="company"]',
-    'input[name="email"]',
-    'input[name="phone"]',
-    'input[name="project"]',
-    'input[name="po"]'
-  ];
-  fields.forEach(sel => { const el = document.querySelector(sel); if (el) el.value = ""; });
-
-  // 4) reset locaties
-  resetLocationsToOffice();
-  // 4b) kalenders terug naar nu(afgerond) en morgen 17:00
+/* ============
+   Volledige reset + terug naar beginscherm
+   ============ */
+function resetCalendarsToDefaults() {
   try {
     const now = new Date();
     const roundedNow = new Date(now);
@@ -129,31 +111,105 @@ function logout(){
       Math.max(nextDay17(defaultPickup).getTime(), addMinutes(defaultPickup, 15).getTime())
     );
 
+    // Als flatpickr bestaat → setDate
     if (window.fpPickup?.setDate) window.fpPickup.setDate(defaultPickup, false);
     if (window.fpReturn?.setDate) window.fpReturn.setDate(defaultReturn, false);
+
+    // Als flatpickr nog niet geïnitialiseerd is, vul inputs alvast (flatpickr pakt dit op bij init)
+    const fmt = (d) =>
+      d.toLocaleString("nl-NL", { hour12: false }).replace(/\s/, ", "); // “dd-mm-jjjj, HH:MM”
+    const pickEl = document.getElementById("pickupDateTime");
+    const retEl  = document.getElementById("returnDateTime");
+    if (pickEl && !pickEl._flatpickr) pickEl.value = fmt(defaultPickup);
+    if (retEl  && !retEl._flatpickr)  retEl.value  = fmt(defaultReturn);
+
+    // Extra redraw zodat de UI niet “leeg” oogt
+    if (window.fpPickup?.selectedDates?.[0]) window.fpPickup.setDate(window.fpPickup.selectedDates[0], false);
+    if (window.fpReturn?.selectedDates?.[0]) window.fpReturn.setDate(window.fpReturn.selectedDates[0], false);
   } catch {}
+}
+
+function resetLocationsToOffice(){
+  const ADDRESS_OFFICE = "Beek en Donk (Donkersvoorstestraat 3)";
+  const pickupSel    = document.getElementById("pickupMode");
+  const returnSel    = document.getElementById("returnMode");
+  const pickupInput  = document.getElementById("pickupDeliveryInput");
+  const returnInput  = document.getElementById("returnDeliveryInput");
+  const pickupHidden = document.getElementById("pickupLocation");
+  const returnHidden = document.getElementById("returnLocation");
+
+  if (pickupSel) pickupSel.value = "office";
+  if (returnSel) returnSel.value = "office";
+  if (pickupInput) pickupInput.value = "";
+  if (returnInput) returnInput.value = "";
+  if (pickupHidden) pickupHidden.value = ADDRESS_OFFICE;
+  if (returnHidden) returnHidden.value = ADDRESS_OFFICE;
+
+  // UI sync
+  if (typeof syncLocation === "function") {
+    syncLocation("pickup");
+    syncLocation("return");
+  }
+}
+
+function showGate(prefill = "") {
+  // Toon overlay + zet focus
+  document.body.classList.add("locked");
+  const gateInput = document.querySelector("#gate #gateName");
+  if (gateInput) {
+    gateInput.value = prefill || "";
+    setTimeout(() => gateInput.focus(), 50);
+  }
+  // Even een resize zodat signature/flatpickr netjes reflowen als je later weer unlockt
+  setTimeout(() => { try { window.dispatchEvent(new Event("resize")); } catch {} }, 60);
+}
+
+function logout(e){
+  try { e?.preventDefault?.(); e?.stopPropagation?.(); } catch {}
+
+  // 1) onthoud desnoods de laatst ingevoerde naam om te prefillen
+  const lastName = (document.querySelector('input[name="renterName"]')?.value || "").trim();
+
+  // 2) kalenders sluiten (popup UI)
+  try { window.fpPickup?.close?.(); } catch {}
+  try { window.fpReturn?.close?.(); } catch {}
+
+  // 3) contact- en projectvelden leegmaken
+  ['renterName','company','email','phone','project','po'].forEach((n) => {
+    const el = document.querySelector(`input[name="${n}"]`);
+    if (el) el.value = "";
+  });
+
+  // 4) locaties terug naar kantoor
+  resetLocationsToOffice();
+
   // 5) items leeg + handtekening wissen
-  clearItemsTable();
+  try {
+    const tbody = document.querySelector("#itemsTable tbody");
+    if (tbody) tbody.innerHTML = "";
+  } catch {}
   try { if (window.signaturePad) window.signaturePad.clear(); } catch {}
 
-  // 6) URL schoon
+  // 6) kalenders terug naar defaults
+  resetCalendarsToDefaults();
+
+  // 7) URL schoon zodat auto-unlock/afterUnlock niet meer triggert
   const url = new URL(location.href);
-  ["order","name","sig"].forEach(k => url.searchParams.delete(k));
+  ["order","name","sig"].forEach((k) => url.searchParams.delete(k));
   history.replaceState(null, "", url.toString());
 
-  // 7) toon gate + prefills
-  const gate = document.getElementById("gate");
-  if (gate) {
-    document.body.classList.add("locked");
-    const gateInput = gate.querySelector("#gateName");
-    if (gateInput) gateInput.value = lastName; // “meenemen naar de volgende invoering”
-  }
+  // 8) naar beginscherm
+  showGate(lastName); // of "" als je geen prefill wilt
 
-  // 8) zorg dat kalenders/handtekening weer netjes initialiseren na relock
-  setTimeout(() => {
-    // als je ensureDatePickers()/initSignaturePad() helpers hebt, kun je ze hier eventueel aanroepen
-    try { window.dispatchEvent(new Event("resize")); } catch {}
-  }, 50);
+  // 9) scroll naar boven (zeker weten dat de overlay in beeld is)
+  try { window.scrollTo({ top: 0, behavior: "instant" }); } catch {}
+}
+
+/* Zorg dat de knop nooit een form submit triggert */
+const logoutBtn = document.getElementById("btnLogout");
+if (logoutBtn) {
+  if (!logoutBtn.getAttribute("type")) logoutBtn.setAttribute("type","button");
+  logoutBtn.addEventListener("click", logout);
 }
 // ——— gate input classificatie
 function classifyLoginInput(v){
